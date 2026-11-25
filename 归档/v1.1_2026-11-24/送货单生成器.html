@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>送货单生成器 v1.1</title>
+<style>
+:root{
+  --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
+  --accent:#1f6feb; --accent-d:#1558c0; --head:#22303f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",sans-serif;
+  font-size:13px;color:var(--text);background:var(--bg);
+}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ---------- 顶栏 ---------- */
+.topbar{background:var(--head);color:#fff;display:flex;align-items:center;gap:10px;padding:0 14px;height:52px;flex:0 0 auto}
+.topbar .brand{font-size:15px;font-weight:700;letter-spacing:.5px;margin-right:8px}
+.topbar .tag{font-size:11px;color:#9fb3c8;border:1px solid #3b4c60;border-radius:10px;padding:1px 8px}
+.topbar .spacer{flex:1}
+.btn{border:0;border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer;font-family:inherit;background:#e8edf3;color:#1f2937;transition:.15s}
+.btn:hover{filter:brightness(.96)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-d)}
+.btn.ghost{background:transparent;color:#dbe4ee;border:1px solid #44576b}
+.btn.ghost:hover{background:#2c3c4e}
+.btn.sm{padding:4px 9px;font-size:12px;border-radius:5px}
+select,input{font-family:inherit}
+
+.workbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
+.workbar label{color:var(--muted);font-size:12px}
+.workbar select,.workbar input[type=number]{padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:#fff;font-size:12px}
+.hint{color:var(--muted);font-size:12px;margin-left:auto}
+
+/* ---------- 主体 ---------- */
+.main{flex:1;display:flex;min-height:0}
+.editor{flex:1 1 56%;overflow:auto;padding:12px 14px 18px;min-width:380px}
+.previewPane{flex:1 1 44%;border-left:1px solid var(--line);background:#dfe4ea;display:flex;flex-direction:column;min-width:300px}
+.previewBar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#f5f7fa;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.previewBar .spacer{flex:1}
+.previewScroll{flex:1;overflow:auto;padding:14px}
+.previewScale{transform-origin:top left}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:12px}
+.card-title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;margin-bottom:10px;color:#111827}
+.card-title .sub{font-weight:400;color:var(--muted);font-size:11.5px}
+
+.grid{display:grid;grid-template-columns:70px 1fr 70px 1fr;gap:8px 10px;align-items:center}
+.grid .lbl{color:var(--muted);text-align:right;font-size:12.5px}
+.field{width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:5px;font-size:13px;background:#fff;outline:none}
+.field:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(31,111,235,.12)}
+.grid .span3{grid-column:2 / span 3}
+.grid .span1{grid-column:2 / span 1}
+
+/* 明细表 */
+.itemTools{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.totalBox{margin-left:auto;font-size:13px;color:#111827}
+.totalBox b{color:var(--accent);font-size:16px;margin-left:4px}
+
+.itemScroll{max-height:52vh;overflow:auto;border-radius:4px}
+table.items{width:100%;min-width:760px;border-collapse:collapse;table-layout:fixed}
+table.items th{background:#f3f6f9;border:1px solid var(--line);font-weight:600;font-size:12px;color:#374151;padding:6px 3px;text-align:center;white-space:nowrap}
+table.items th:hover{background:#e6eff8}
+.itemScroll thead th{position:sticky;top:0;z-index:2}
+#itemTable th{position:relative}
+.colGrip{position:absolute;top:0;right:-4px;width:10px;height:100%;cursor:col-resize;z-index:3}
+.colGrip:hover{background:rgba(37,99,235,.35);border-radius:2px}
+#itemTable th:hover .colGrip{background:rgba(37,99,235,.28);border-radius:2px}
+body.colResizing{user-select:none}
+body.colResizing,body.colResizing *{cursor:col-resize !important}
+.dragTd{text-align:center;vertical-align:middle;cursor:grab;user-select:none;padding:4px !important}
+.dragHandle{display:inline-block;padding:4px 8px;border:1px solid #cfd8e3;border-radius:5px;
+  background:#f7f9fc;color:#374151;font-size:12px;letter-spacing:1px;white-space:nowrap}
+.dragHandle:hover{background:#e8f1ff;border-color:#2563eb;color:#1d4ed8}
+.dragHandle:active{cursor:grabbing}
+.colTable tr.dragging{opacity:.55;outline:2px dashed #2563eb;outline-offset:-2px;background:#eff6ff}
+.colTable tr.dropBefore td{border-top:3px solid #2563eb}
+.colTable tr.dropAfter td{border-bottom:3px solid #2563eb}
+.colTable tbody tr:hover{background:#f8fbff}
+.colTable .btn.sm{padding:3px 7px}
+table.items td{border:1px solid var(--line);padding:0;vertical-align:middle}
+table.items td input{width:100%;border:0;padding:6px 6px;font-size:12.5px;outline:none;background:transparent}
+table.items td input:focus{background:#eef5ff}
+table.items td.num{text-align:center;color:var(--muted);font-size:12px;background:#fafbfc}
+table.items .specInput{font-size:12px}
+
+.rowSel{width:15px;text-align:center}
+.rowSel input{accent-color:var(--accent)}
+
+/* ---------- 预览页 ---------- */
+.page{
+  position:relative;background:#fff;margin:0 auto 14px;
+  box-shadow:0 2px 10px rgba(20,30,45,.18);
+  overflow:hidden;color:#000;
+  font-family:"SimSun","宋体",serif;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.page .ttl{position:absolute;white-space:nowrap}
+.page .kv{position:absolute;white-space:nowrap}
+.page .sig{position:absolute;white-space:nowrap}
+.page table{border-collapse:collapse;table-layout:fixed;position:absolute}
+.page table th,.page table td{border:1px solid #000;padding:0;overflow:hidden}
+.page table th{vertical-align:middle;text-align:center;font-weight:400}
+.page table td{vertical-align:middle}
+.page table td .c{display:block;white-space:nowrap;overflow:hidden}
+.page .specCell{text-align:center}
+
+/* ---------- 打印 ---------- */
+@media print{
+  #app,#modalLayer{display:none !important}
+  #printRoot{display:block !important}
+  body{background:#fff}
+  .page{box-shadow:none;margin:0;page-break-after:always;break-after:page}
+  .page:last-child{page-break-after:auto;break-after:auto}
+}
+#printRoot{display:none}
+
+/* ---------- 其他 ---------- */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1f2937;color:#fff;
+  padding:9px 16px;border-radius:6px;font-size:12.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60}
+#toast.show{opacity:1;bottom:34px}
+#modalLayer{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+#modalLayer.show{display:flex}
+.modal{background:#fff;border-radius:10px;width:min(880px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.modal .mhead{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.modal .mhead b{font-size:14px}
+.modal .mhead .spacer{flex:1}
+.modal .mbody{padding:14px 16px;overflow:auto}
+.modal .mfoot{padding:10px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.closeX{border:0;background:transparent;font-size:18px;cursor:pointer;color:#6b7280;line-height:1}
+.helpText{font-size:12.5px;color:#374151;line-height:1.85}
+.helpText code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-family:Consolas,monospace}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="topbar">
+    <span class="brand">送货单生成器<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.1</span></span>
+    <span class="tag" id="tagNo">未编号</span>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="btnNew">新建</button>
+    <button class="btn ghost" id="btnOpen">记录库</button>
+    <button class="btn ghost" id="btnSave">保存</button>
+    <button class="btn ghost" id="btnClone">复制本单</button>
+    <button class="btn primary" id="btnPrint">打印 / 导出PDF</button>
+  </div>
+
+  <div class="workbar">
+    <label>打印版式</label>
+    <select id="layout">
+      <option value="tri">三联纸 241×140mm（针式打印机）</option>
+      <option value="a4">A4 纸（激光 / 喷墨）</option>
+    </select>
+    <label>上下微调</label>
+    <input type="number" id="offset" value="0" step="0.5" min="-15" max="15" style="width:66px"> <span style="color:#6b7280;font-size:12px">mm</span>
+    <button class="btn sm" id="btnHelp">打印设置说明</button>
+    <button class="btn sm" id="btnBackup">导出备份</button>
+    <button class="btn sm" id="btnRestore">导入备份</button>
+    <span class="hint" id="hintScale">预览按纸张实际比例显示</span>
+  </div>
+
+  <div class="main">
+    <div class="editor">
+      <div class="card">
+        <div class="card-title">单据信息</div>
+        <div class="grid">
+          <div class="lbl">公司名称</div>
+          <input class="field span3" id="f_company" placeholder="单位抬头">
+          <div class="lbl">单据编号</div>
+          <input class="field" id="f_no">
+          <div class="lbl">录单日期</div>
+          <input class="field" id="f_date" type="date">
+          <div class="lbl">制单人</div>
+          <input class="field" id="f_maker">
+          <div class="lbl">经办人</div>
+          <input class="field" id="f_agent">
+          <div class="lbl">送货人</div>
+          <input class="field" id="f_shipper" placeholder="送货人姓名，打印在单据底部">
+          <div class="lbl">部门</div>
+          <input class="field" id="f_dept">
+          <div class="lbl">发货仓库</div>
+          <input class="field" id="f_warehouse">
+          <div class="lbl">客户</div>
+          <input class="field" id="f_customer" list="dlCustomer">
+          <div class="lbl">摘要</div>
+          <input class="field span3" id="f_summary">
+        </div>
+        <datalist id="dlCustomer"></datalist>
+      </div>
+
+      <div class="card">
+        <div class="card-title">货物明细
+          <span class="sub">单击任意格直接改，回车跳下一格；Excel 里 Ctrl+C → 回表格 Ctrl+V 整块粘贴；双击表头改列名；拖表头右边界调列宽</span>
+        </div>
+        <div class="itemTools">
+          <button class="btn sm" id="btnAdd">添加行</button>
+          <button class="btn sm" id="btnIns">插入行</button>
+          <button class="btn sm" id="btnDel">删除选中行</button>
+          <button class="btn sm" id="btnUp">上移</button>
+          <button class="btn sm" id="btnDown">下移</button>
+          <button class="btn sm" id="btnCols">列设置</button>
+          <span class="totalBox">合计数量<b id="totalQty">0</b></span>
+        </div>
+        <div class="itemScroll">
+          <table class="items" id="itemTable">
+            <thead><tr id="itemHead"></tr></thead>
+            <tbody id="itemBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="previewPane">
+      <div class="previewBar">
+        <span>打印预览</span>
+        <span class="spacer"></span>
+        <button class="btn sm" id="zoomOut">－</button>
+        <span id="zoomLabel">适应</span>
+        <button class="btn sm" id="zoomIn">＋</button>
+      </div>
+      <div class="previewScroll" id="previewScroll">
+        <div class="previewScale" id="previewScale"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="printRoot"></div>
+<style id="pageRule"></style>
+
+<div id="modalLayer"><div class="modal" id="modalBox"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ============ 版式参数（单位 pt，与模板实测一致） ============ */
+const PROFILES = {
+  tri: {
+    key:'tri', name:'三联纸 241×140mm（针式打印机）',
+    pageW:683.03, pageH:396.85, x0:56.5, tableW:570,
+    colRatios:[0.045,0.095,0.098,0.265,0.075,0.052,0.060,0.115,0.195],
+    labelRatios:[0,0.315,0.615], valueRatios:[0.098,0.407,0.717],
+    titleSize:15.5, titleY:34,
+    infoBaselines:[54,71.5,89],
+    tableTop:101.5, hdrH:15.5, tableBottom:356, totalH:14.5,
+    rowMin:35, lineH:11.5, font:9, lineW:0.95,
+    fill:false, maxRows:6, fillRows:false,
+    sigOffset:13, sigX:[8.9,222.8,431.6], pageNo:'top',
+    cssSize:'683.03pt 396.85pt'
+  },
+  a4: {
+    key:'a4', name:'A4 纸（激光 / 喷墨）',
+    pageW:595.32, pageH:841.92, x0:29.4, tableW:516.3,
+    colRatios:[28.4/516.3,46.8/516.3,67.7/516.3,100.8/516.3,51.1/516.3,36/516.3,36.8/516.3,73.4/516.3,75.3/516.3],
+    labelRatios:[0.0033,0.3033,0.6048], valueRatios:[0.098,0.3969,0.7062],
+    titleSize:20.04, titleY:86.69,
+    infoBaselines:[110.94,127.24,143.54],
+    tableTop:164.2, hdrH:16.4, tableBottom:780, totalH:14.8,
+    rowMin:46, lineH:11.3, font:9, lineW:0.7,
+    fill:true, maxRows:14, fillRows:false,
+    sigOffset:11.94, sigX:[8.9,222.8,431.6], pageNo:'bottom',
+    cssSize:'A4'
+  }
+};
+/* 明细表列定义：k=数据键，d=默认列名。列名/显示/宽度可在「列设置」里改，打印同步生效 */
+const COLS = [
+  {k:'seq',      d:'序号'},
+  {k:'code',     d:'存货编号'},
+  {k:'name',     d:'存货名称'},
+  {k:'spec',     d:'规格型号'},
+  {k:'proj',     d:'项目编号'},
+  {k:'unit',     d:'单位'},
+  {k:'qty',      d:'数量'},
+  {k:'pin',      d:'品号'},
+  {k:'contract', d:'合同编号'}
+];
+const HEADS = COLS.map(c=>c.d);
+const KEYS  = COLS.map(c=>c.k);
+const ITEM_KEYS = ['code','name','spec','proj','unit','qty','pin','contract'];
+/* 默认宽度权重：取三联纸版式实测列宽，单位千分之一 */
+function defaultCols(){
+  return COLS.map((c,i)=>({
+    k:c.k, name:c.d, on:true,
+    w: Math.round(PROFILES.tri.colRatios[i]*1000)
+  }));
+}
+function loadCols(set){
+  const def = defaultCols();
+  const saved = set && Array.isArray(set.cols)? set.cols : null;
+  if(!saved || !saved.length) return def;
+  const out = [];
+  saved.forEach(s=>{
+    if(!s || typeof s.k!=='string' || !s.k) return;
+    if(out.some(c=>c.k===s.k)) return;
+    const std = def.filter(d=>d.k===s.k)[0];
+    out.push({
+      k: s.k,
+      name: String(s.name||'').trim() || (std? std.d : '列'),
+      on: s.on!==false,
+      w: (+s.w>0? +s.w : (std? std.w : 60))
+    });
+  });
+  return out.length? out : def;
+}
+function nextColKey(list){
+  const used={}; list.forEach(c=>used[c.k]=1);
+  let n=1; while(used['x'+n]) n++;
+  return 'x'+n;
+}
+const FIELDS = ['company','maker','date','no','agent','shipper','dept','warehouse','customer','summary'];
+const FIELD_LABEL = {company:'公司名称',maker:'制单人',date:'录单日期',no:'单据编号',agent:'经办人',shipper:'送货人',dept:'部门',warehouse:'发货仓库',customer:'客户',summary:'摘要'};
+
+/* ============ 工具 ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { v = parseFloat(String(v).replace(/,/g,'')); return isNaN(v)?0:v; };
+const fmtQty = n => (Math.round(n*1000)/1000).toString();
+const today = () => { const d=new Date(); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); };
+
+const mc = document.createElement('canvas').getContext('2d');
+/* canvas 的宽度是 px（96dpi），版面用 pt，1pt = 1.333px，故乘 0.75 换算 */
+function measure(t, fs){ mc.font = fs+'pt "SimSun","宋体",serif'; return mc.measureText(t||'').width * 0.75; }
+
+function wrapText(text, maxW, fs){
+  text = String(text==null?'':text).replace(/\r\n|\r/g,'\n');
+  const out=[];
+  text.split('\n').forEach(raw=>{
+    const s = raw.replace(/[ \t]{2,}/g,' ').trim();
+    if(!s){ out.push(''); return; }
+    const atoms = s.match(/[A-Za-z0-9\-/_.()]+\s*|\s+|[\s\S]/g) || [];
+    let line='';
+    for(const atom of atoms){
+      const cand = line+atom;
+      if(measure(cand,fs) <= maxW){ line=cand; continue; }
+      if(!line.trim()){
+        for(const ch of atom){
+          if(measure(line+ch,fs) <= maxW || !line) line+=ch;
+          else { out.push(line.replace(/\s+$/,'')); line=ch; }
+        }
+        continue;
+      }
+      out.push(line.replace(/\s+$/,''));
+      line = atom.replace(/^[\s]+/,'');
+    }
+    out.push(line.replace(/\s+$/,''));
+  });
+  return out.length?out:[''];
+}
+
+/* ============ 状态 ============ */
+const LS = {
+  get(k, d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+};
+
+let model = {
+  company:'苏州安驰电子科技有限公司', maker:'', date:today(), no:'', agent:'', dept:'',
+  shipper:'', warehouse:'', customer:'', summary:'',
+  items:[blankItem()]
+};
+function blankItem(){ return {code:'',name:'',spec:'',proj:'',unit:'',qty:'',pin:'',contract:''}; }
+
+let UI = { layout:'tri', offset:0, zoom:0, recs:[], cols:defaultCols(), colsCustom:false };
+const REC_KEY='shd_records_v1', SET_KEY='shd_settings_v1', LIB_KEY='shd_lib_v1', DRAFT_KEY='shd_draft_v1';
+
+/* ============ 初始化 ============ */
+function init(){
+  const set = LS.get(SET_KEY, {});
+  if(set.layout && PROFILES[set.layout]) UI.layout = set.layout;
+  if(set.offset!==undefined) UI.offset = +set.offset || 0;
+  UI.cols = loadCols(set);
+  UI.colsCustom = !!set.colsCustom;
+  UI.recs = LS.get(REC_KEY, []);
+  model.company = set.company || model.company;
+  model.maker = set.maker || '';
+  model.agent = set.agent || '';
+  model.shipper = set.shipper || '';
+  model.warehouse = set.warehouse || '';
+  model.customer = set.customer || '';
+
+  const draft = LS.get(DRAFT_KEY, null);
+  if(draft && draft.items && draft.items.length){ model = Object.assign(model, draft); }
+
+  $('#layout').value = UI.layout;
+  $('#offset').value = UI.offset;
+
+  bind();
+  renderForm();
+  renderItems();
+  renderCustomers(set.customers||[]);
+  if(!model.no) model.no = nextNo(model.date);
+  renderForm();
+  renderPrint();
+  updateTag();
+}
+
+function bind(){
+  const map = {company:'#f_company',maker:'#f_maker',date:'#f_date',no:'#f_no',agent:'#f_agent',
+               shipper:'#f_shipper',dept:'#f_dept',warehouse:'#f_warehouse',customer:'#f_customer',summary:'#f_summary'};
+  Object.keys(map).forEach(k=>{
+    const el=$(map[k]);
+    el.addEventListener('input', ()=>{ model[k]=el.value; if(k==='no') updateTag(); refresh(); });
+    el.addEventListener('change', ()=>{ model[k]=el.value; refresh(); });
+  });
+  $('#f_date').addEventListener('change', ()=>{ if(!model.no || /^XS-/.test(model.no)) { model.no = nextNo(model.date); $('#f_no').value=model.no; } refresh(); });
+
+  $('#layout').addEventListener('change', e=>{ UI.layout=e.target.value; saveSettings(); renderPrint(); });
+  $('#offset').addEventListener('input', e=>{ UI.offset = +e.target.value || 0; saveSettings(); renderPrint(); });
+
+  $('#btnNew').onclick = newDoc;
+  $('#btnSave').onclick = saveDoc;
+  $('#btnOpen').onclick = openRecords;
+  $('#btnClone').onclick = cloneDoc;
+  $('#btnPrint').onclick = doPrint;
+  $('#btnAdd').onclick = ()=>addRow();
+  $('#btnIns').onclick = insertRow;
+  $('#btnDel').onclick = delRows;
+  $('#btnUp').onclick = ()=>moveRows(-1);
+  $('#btnDown').onclick = ()=>moveRows(1);
+  $('#btnCols').onclick = ()=>showCols();
+  $('#btnHelp').onclick = showHelp;
+  $('#btnBackup').onclick = backup;
+  $('#btnRestore').onclick = restore;
+  $('#zoomIn').onclick = ()=>{ UI.zoom=Math.min(1.6,(UI.zoom||fitZoom())+0.1); applyZoom(); };
+  $('#zoomOut').onclick = ()=>{ UI.zoom=Math.max(0.25,(UI.zoom||fitZoom())-0.1); applyZoom(); };
+
+  document.addEventListener('paste', onPaste);
+  document.addEventListener('keydown', e=>{
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveDoc(); }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='p'){ e.preventDefault(); doPrint(); }
+  });
+  window.addEventListener('resize', ()=>{ if(!UI.zoom) applyZoom(); });
+}
+
+function saveSettings(){
+  LS.set(SET_KEY, Object.assign(LS.get(SET_KEY,{}), {
+    layout:UI.layout, offset:UI.offset, company:model.company, maker:model.maker,
+    agent:model.agent, shipper:model.shipper, warehouse:model.warehouse,
+    cols:UI.cols, colsCustom:UI.colsCustom
+  }));
+}
+
+/* ============ 表单 ============ */
+function renderForm(){
+  $('#f_company').value = model.company||'';
+  $('#f_no').value = model.no||'';
+  $('#f_date').value = model.date||'';
+  $('#f_maker').value = model.maker||'';
+  $('#f_agent').value = model.agent||'';
+  $('#f_shipper').value = model.shipper||'';
+  $('#f_dept').value = model.dept||'';
+  $('#f_warehouse').value = model.warehouse||'';
+  $('#f_customer').value = model.customer||'';
+  $('#f_summary').value = model.summary||'';
+  updateTag();
+}
+function updateTag(){ $('#tagNo').textContent = model.no || '未编号'; }
+
+function renderCustomers(list){
+  const arr = (list||[]).slice(0,40);
+  if(model.customer && !arr.includes(model.customer)) arr.unshift(model.customer);
+  $('#dlCustomer').innerHTML = arr.map(c=>`<option value="${esc(c)}">`).join('');
+}
+
+/* ============ 明细编辑 ============ */
+function visibleCols(){ return UI.cols.filter(c=>c.on); }
+
+function renderItems(){
+  const vis = visibleCols();
+  // 编辑区把「规格型号」适当加宽，方便看清长规格；打印仍按列设置的比例
+  const sw = c => c.k==='spec'? c.w*1.8 : c.w;
+  const sumW = vis.reduce((s,c)=>s+sw(c),0) || 1;
+  const head = $('#itemHead');
+  head.innerHTML = '<th style="width:22px"></th>' + vis.map((c,i)=>
+    `<th style="width:${(sw(c)/sumW*100).toFixed(2)}%" title="双击可改列名">${esc(c.name)}${i<vis.length-1?'<span class="colGrip" data-grip="'+i+'" title="左右拖动调列宽（只影响相邻两列）"></span>':''}</th>`).join('');
+  head.querySelectorAll('th').forEach((th,i)=>{
+    if(i===0) return;
+    th.addEventListener('dblclick', ()=>showCols());
+  });
+  head.querySelectorAll('.colGrip').forEach(g=>{
+    g.addEventListener('mousedown', e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      startColResize(+g.dataset.grip, e);
+    });
+  });
+
+  const tb = $('#itemBody');
+  tb.innerHTML = model.items.map((it,i)=>`
+    <tr data-i="${i}">
+      <td class="rowSel"><input type="checkbox" class="rowCheck"></td>
+      ${vis.map(c=> c.k==='seq'
+        ? `<td class="num">${i+1}</td>`
+        : `<td><input class="cellInput${c.k==='spec'?' specInput':''}" data-i="${i}" data-k="${c.k}"
+             value="${esc(it[c.k])}" title="${esc(it[c.k])}" ${c.k==='qty'?'style="text-align:right"':''}></td>`).join('')}
+    </tr>`).join('');
+
+  tb.querySelectorAll('.cellInput').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i=+e.target.dataset.i, k=e.target.dataset.k;
+      model.items[i][k] = e.target.value;
+      e.target.title = e.target.value;
+      if(k==='qty') updateTotal();
+      refresh();
+    });
+    inp.addEventListener('blur', e=>{
+      const i=+e.target.dataset.i, k=e.target.dataset.k;
+      if(k==='code') autoFill(i, e.target.value.trim());
+    });
+    inp.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); focusNext(e.target); }
+    });
+  });
+  updateTotal();
+}
+/* ============ 拖动表头边界调列宽 ============ */
+function startColResize(ci, ev){
+  const ths = [...document.querySelectorAll('#itemHead th')].slice(1);
+  if(!ths.length || !ths[ci] || !ths[ci+1]) return;
+  const widths = ths.map(t=>t.getBoundingClientRect().width);
+  const aw = widths[ci];        // 被拖的列
+  const bw = widths[ci+1];      // 紧挨着的右边一列
+  const minW = 30;
+  const startX = ev.clientX;
+  document.body.classList.add('colResizing');
+  // 先把所有列宽度钉成当前像素值，保证拖动过程中其他列纹丝不动
+  ths.forEach((t,i)=>{ t.style.width = widths[i]+'px'; });
+  const move = e=>{
+    // 只调整这两个列：本列变宽 = 右邻列等比变窄，反之亦然
+    let dx = e.clientX - startX;
+    dx = Math.max(minW - aw, Math.min(bw - minW, dx));
+    ths[ci].style.width = (aw + dx) + 'px';
+    ths[ci+1].style.width = (bw - dx) + 'px';
+  };
+  const up = ()=>{
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.body.classList.remove('colResizing');
+    commitColWidths();
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+function commitColWidths(){
+  const ths = [...document.querySelectorAll('#itemHead th')].slice(1);
+  const vis = visibleCols();
+  if(!ths.length) return;
+  const px = ths.map(t=>t.getBoundingClientRect().width);
+  // 编辑区规格列有 1.8 倍显示加宽，换算回权重前先还原
+  const base = px.map((v,i)=> vis[i] && vis[i].k==='spec' ? v/1.8 : v);
+  const sum = base.reduce((s,v)=>s+v,0) || 1;
+  vis.forEach((c,i)=>{ c.w = Math.max(5, Math.round(base[i]/sum*1000)); });
+  UI.cols = UI.cols.map(c=>{
+    if(!c.on) return c;
+    const nv = vis.filter(v=>v.k===c.k)[0];
+    return nv ? Object.assign({}, c, {w:nv.w}) : c;
+  });
+  UI.colsCustom = true;
+  renderItems(); refresh(); saveSettings();
+  toast('列宽已更新，打印预览同步调整');
+}
+function focusNext(el){
+  const i=+el.dataset.i, k=el.dataset.k;
+  const keys = visibleCols().filter(c=>c.k!=='seq').map(c=>c.k);
+  const ki=keys.indexOf(k);
+  let target;
+  if(ki<keys.length-1) target=$(`.cellInput[data-i="${i}"][data-k="${keys[ki+1]}"]`);
+  else if(model.items[i+1]) target=$(`.cellInput[data-i="${i+1}"][data-k="${keys[0]}"]`);
+  else { addRow(); target=$(`.cellInput[data-i="${model.items.length-1}"][data-k="${keys[0]}"]`); }
+  if(target){ target.focus(); target.select&&target.select(); }
+}
+
+function autoFill(i, code){
+  if(!code) return;
+  const lib = LS.get(LIB_KEY, {});
+  const info = lib[code];
+  if(!info) return;
+  const it = model.items[i];
+  ['name','spec','unit','pin'].forEach(k=>{ if(!it[k] && info[k]) it[k]=info[k]; });
+  const row = document.querySelector(`tr[data-i="${i}"]`);
+  if(row) row.querySelectorAll('.cellInput').forEach(inp=>{ inp.value = it[inp.dataset.k]||''; });
+  refresh();
+  toast('已从商品库带出：'+(info.name||code));
+}
+
+function firstKey(){ const v=visibleCols().filter(c=>c.k!=='seq'); return v.length? v[0].k : 'code'; }
+
+function addRow(){
+  model.items.push(blankItem());
+  renderItems(); refresh();
+  const last = model.items.length-1;
+  setTimeout(()=>{ const el=$(`.cellInput[data-i="${last}"][data-k="${firstKey()}"]`); if(el) el.focus(); }, 30);
+}
+function insertRow(){
+  const sel=[...document.querySelectorAll('.rowCheck:checked')].map(x=>+x.closest('tr').dataset.i);
+  const at = sel.length? sel[0]+1 : model.items.length;
+  model.items.splice(at,0,blankItem());
+  renderItems(); refresh();
+  setTimeout(()=>{ const el=$(`.cellInput[data-i="${at}"][data-k="${firstKey()}"]`); if(el) el.focus(); }, 30);
+  toast('已在选中行下方插入一行');
+}
+function delRows(){
+  const sel=[...document.querySelectorAll('.rowCheck:checked')].map(x=>+x.closest('tr').dataset.i);
+  if(!sel.length){ toast('请先勾选要删除的行'); return; }
+  model.items = model.items.filter((_,i)=>!sel.includes(i));
+  if(!model.items.length) model.items=[blankItem()];
+  renderItems(); refresh();
+}
+function moveRows(d){
+  const sel=[...document.querySelectorAll('.rowCheck:checked')].map(x=>+x.closest('tr').dataset.i);
+  if(sel.length!==1){ toast('请只勾选一行再上移/下移'); return; }
+  const i=sel[0], j=i+d;
+  if(j<0||j>=model.items.length) return;
+  [model.items[i],model.items[j]]=[model.items[j],model.items[i]];
+  renderItems(); refresh();
+  setTimeout(()=>{ const c=document.querySelectorAll('.rowCheck')[j]; if(c) c.checked=true; },20);
+}
+function updateTotal(){
+  const t = model.items.reduce((s,it)=>s+num(it.qty),0);
+  $('#totalQty').textContent = fmtQty(t);
+}
+function totalQty(items){
+  const t=(items||[]).reduce((s,it)=>s+num(it.qty),0);
+  return fmtQty(t);
+}
+
+/* ============ 列设置（增删列 / 改名 / 隐藏 / 调宽） ============ */
+let colsDraft = null;
+
+function showCols(list){
+  if(!Array.isArray(list)) list = null;
+  colsDraft = (list || UI.cols).map(c=>Object.assign({}, c));
+  const n = colsDraft.length;
+  const rows = colsDraft.map((c,i)=>{
+    const std = COLS.filter(x=>x.k===c.k)[0];
+    return `<tr data-ri="${i}">
+      <td class="dragTd"><span class="dragHandle" data-handle="${i}" title="按住这里上下拖，松手放到想要的位置">⠿ 拖</span></td>
+      <td style="text-align:center;color:#6b7280;font-size:12px;padding:4px">${i+1}</td>
+      <td style="padding:4px"><input class="colName" data-ci="${i}" value="${esc(c.name)}" placeholder="${esc(std?std.d:'列名')}"
+           style="width:100%;border:1px solid var(--line);border-radius:4px;padding:5px 7px;font-size:12.5px;outline:none"></td>
+      <td style="text-align:center;padding:4px"><input type="checkbox" class="colOn" data-ci="${i}" ${c.on?'checked':''}></td>
+      <td style="padding:4px"><input class="colW" data-ci="${i}" type="number" min="5" max="600" step="5" value="${c.w}"
+           style="width:78px;border:1px solid var(--line);border-radius:4px;padding:5px 7px;font-size:12.5px;outline:none"></td>
+      <td style="text-align:center;padding:4px;white-space:nowrap">
+        <button class="btn sm" data-moveup="${i}" ${i===0?'disabled':''} title="上移一位">↑</button>
+        <button class="btn sm" data-movedn="${i}" ${i===n-1?'disabled':''} title="下移一位">↓</button>
+        <button class="btn sm" data-delcol="${i}" style="color:#b42318">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  openModal('列设置 —— 增删列 / 拖动排序 / 改名 / 隐藏 / 调宽', `
+    <div class="helpText" style="margin-bottom:10px">
+      按住最左边的 <b>⠿ 拖</b> 上下拖，拖到哪一行出现<b>蓝色横线</b>就插到那里（松手生效）；也可以用 ↑ ↓ 一格一格挪。列名、显示、宽度改完点「应用」。
+    </div>
+    <table class="items colTable" style="table-layout:fixed;min-width:0">
+      <thead><tr>
+        <th style="width:72px">拖动</th><th style="width:44px">顺序</th><th>列名（表头文字）</th>
+        <th style="width:52px">显示</th><th style="width:92px">宽度</th><th style="width:150px">操作</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="helpText" style="margin-top:10px">
+      注：序号列由软件自动填；「数量」列决定合计数字落在哪一格，删掉数量列则合计跟在小计/合计文字后面。
+      粘贴 Excel 仍按固定顺序识别（存货编号 → 名称 → 规格 → 项目编号 → 单位 → 数量 → 品号 → 合同编号），
+      被删掉的列对应的数据不会写进单里。
+    </div>`, [
+      {label:'恢复默认', act:()=>{
+        UI.cols = defaultCols(); UI.colsCustom=false; colsDraft=null;
+        closeModal(); renderItems(); renderPrint(); saveSettings();
+        toast('已恢复默认 9 列');
+      }},
+      {label:'＋ 添加列', act:()=>{
+        const cur = readCols();
+        const k = nextColKey(cur);
+        cur.push({k, name:'新列'+(cur.length+1), on:true, w:60});
+        showCols(cur);
+      }},
+      {label:'取消', act:()=>{ colsDraft=null; closeModal(); }},
+      {label:'应用', primary:true, act:applyCols}
+    ]);
+
+  // 上下移 / 删除
+  $('#modalBox').querySelectorAll('[data-delcol]').forEach(b=>{
+    b.onclick = ()=>{
+      const cur = readCols();
+      const i = +b.dataset.delcol;
+      if(cur.length<=2){ toast('至少要保留两列'); return; }
+      cur.splice(i,1);
+      showCols(cur);
+    };
+  });
+  $('#modalBox').querySelectorAll('[data-moveup]').forEach(b=>{
+    b.onclick = ()=> shiftCol(readCols(), +b.dataset.moveup, -1);
+  });
+  $('#modalBox').querySelectorAll('[data-movedn]').forEach(b=>{
+    b.onclick = ()=> shiftCol(readCols(), +b.dataset.movedn, 1);
+  });
+
+  // 鼠标拖动换位：整行跟随鼠标，落点上方=插到该行前，下方=插到该行后
+  let dragFrom = null;
+  const box = $('#modalBox');
+  const tbody = box.querySelector('tbody');
+  const rowEls = [...tbody.querySelectorAll('tr')];
+
+  rowEls.forEach((tr,i)=>{
+    const handle = tr.querySelector('[data-handle]');
+    if(handle) handle.addEventListener('mousedown', ()=>{
+      rowEls.forEach(x=>x.draggable=false);
+      tr.draggable = true;
+    });
+    tr.addEventListener('dragstart', e=>{
+      if(!tr.draggable){ e.preventDefault(); return; }
+      dragFrom = i;
+      tr.classList.add('dragging');
+      if(e.dataTransfer){
+        e.dataTransfer.effectAllowed='move';
+        try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
+        try{ e.dataTransfer.setDragImage(tr, 40, 20); }catch(_){}   // 拖影=整行，不会看着像消失
+      }
+    });
+    tr.addEventListener('dragend', ()=>{
+      const cancelled = dragFrom !== null;
+      tr.draggable = false;
+      dragFrom = null;
+      rowEls.forEach(x=>x.classList.remove('dragging','dropBefore','dropAfter'));
+      if(cancelled) toast('没有拖到行上，位置未改动（松手时要落在某一行的蓝色横线上）');
+    });
+  });
+
+  tbody.addEventListener('dragover', e=>{
+    if(dragFrom===null) return;
+    e.preventDefault();
+    if(e.dataTransfer) e.dataTransfer.dropEffect='move';
+    const tr = e.target.closest ? e.target.closest('tr') : null;
+    rowEls.forEach(x=>x.classList.remove('dropBefore','dropAfter'));
+    if(!tr || !tr.dataset.ri) return;
+    const r = tr.getBoundingClientRect();
+    tr.classList.add((e.clientY - r.top) > r.height/2 ? 'dropAfter' : 'dropBefore');
+  });
+  tbody.addEventListener('dragleave', e=>{
+    if(!e.relatedTarget || !tbody.contains(e.relatedTarget)){
+      rowEls.forEach(x=>x.classList.remove('dropBefore','dropAfter'));
+    }
+  });
+  tbody.addEventListener('drop', e=>{
+    if(dragFrom===null) return;
+    e.preventDefault();
+    const from = dragFrom;
+    const tr = e.target.closest ? e.target.closest('tr') : null;
+    let at;
+    if(tr && tr.dataset.ri){
+      at = (+tr.dataset.ri) + (tr.classList.contains('dropAfter') ? 1 : 0);
+    } else {
+      at = rowEls.length;
+    }
+    dragFrom = null;
+    rowEls.forEach(x=>x.classList.remove('dragging','dropBefore','dropAfter'));
+    let to = at; if(to > from) to -= 1;
+    if(to === from) return;
+    const cur = readCols();
+    const moved = cur.splice(from,1)[0];
+    cur.splice(to,0,moved);
+    showCols(cur);
+    toast('已把「'+moved.name+'」放到第 '+(to+1)+' 列');
+  });
+}
+function shiftCol(cur, i, d){
+  const j = i + d;
+  if(j<0 || j>=cur.length) return;
+  const moved = cur.splice(i,1)[0];
+  cur.splice(j,0,moved);
+  showCols(cur);
+}
+
+function readCols(){
+  const box = $('#modalBox');
+  const names=[...box.querySelectorAll('.colName')];
+  const ons=[...box.querySelectorAll('.colOn')];
+  const ws=[...box.querySelectorAll('.colW')];
+  return (colsDraft||[]).map((c,i)=>({
+    k: c.k,
+    name: String(names[i]? names[i].value : c.name).trim() || c.name || '列',
+    on: ons[i]? ons[i].checked : true,
+    w: Math.max(5, Math.min(600, (ws[i]? +ws[i].value : c.w) || 60))
+  }));
+}
+
+function applyCols(){
+  const next = readCols();
+  if(next.filter(c=>c.on).length < 2){ toast('至少要保留两列显示'); return; }
+  const def = defaultCols();
+  UI.cols = next;
+  UI.colsCustom = !(next.length===def.length && next.every((c,i)=>c.k===def[i].k && c.w===def[i].w));
+  colsDraft = null;
+  closeModal(); renderItems(); renderPrint(); saveSettings();
+  toast('列设置已应用，共 '+next.length+' 列，打印预览已同步');
+}
+
+/* ============ 粘贴 Excel ============ */
+function onPaste(e){
+  const ae = document.activeElement;
+  if(!ae || !ae.closest || !ae.closest('#itemTable')) return;
+  const text = (e.clipboardData||window.clipboardData).getData('text');
+  if(!text || !/\t|\n/.test(text)) return;
+  e.preventDefault();
+  const rows = parseTSV(text);
+  if(!rows.length){ toast('没有识别到有效明细'); return; }
+  if(model.items.length===1 && !Object.values(model.items[0]).some(v=>String(v).trim())) model.items=[];
+  rows.forEach(r=>model.items.push(r));
+  renderItems(); refresh();
+  toast('已导入 '+rows.length+' 行明细');
+}
+function parseTSV(raw){
+  const lines = String(raw).replace(/\r\n|\r/g,'\n').split('\n').filter(l=>l.trim());
+  const out=[];
+  for(const ln of lines){
+    let cells = ln.includes('\t') ? ln.split('\t') : ln.split(/\s{2,}/);
+    cells = cells.map(c=>c.trim());
+    if(!cells.length) continue;
+    if(ln.includes('存货编号') || cells[0]==='序号') continue;
+    if(cells.length>=9 && /^\d+$/.test(cells[0])) cells=cells.slice(1);
+    while(cells.length<8) cells.push('');
+    cells = cells.slice(0,8);
+    const it = {code:cells[0],name:cells[1],spec:cells[2],proj:cells[3],unit:cells[4],qty:cells[5],pin:cells[6],contract:cells[7]};
+    if(Object.values(it).some(v=>v)) out.push(it);
+  }
+  return out;
+}
+
+/* ============ 分页 & 渲染 ============ */
+function currentProfile(){ return PROFILES[UI.layout] || PROFILES.tri; }
+
+function ratioNow(P){
+  const vis = visibleCols();
+  if(!UI.colsCustom && vis.length===COLS.length) return P.colRatios.slice(0, vis.length);
+  const raw = vis.map(c=>{
+    if(UI.colsCustom) return c.w;
+    const i = COLS.findIndex(x=>x.k===c.k);
+    return P.colRatios[i] || 0.1;
+  });
+  const sum = raw.reduce((a,b)=>a+b,0) || 1;
+  return raw.map(v=>v/sum);
+}
+function geom(P){
+  const vis = visibleCols();
+  const rs = ratioNow(P);
+  const xs=[P.x0];
+  rs.forEach(r=>xs.push(xs[xs.length-1]+r*P.tableW));
+  xs[xs.length-1]=P.x0+P.tableW;
+  const cx=[], w={};
+  for(let i=0;i<xs.length-1;i++){ cx.push((xs[i]+xs[i+1])/2); w[vis[i].k]=xs[i+1]-xs[i]; }
+  const lx=P.labelRatios.map(r=>P.x0+r*P.tableW);
+  const vx=P.valueRatios.map(r=>P.x0+r*P.tableW);
+  return {xs,cx,vis,w,lx,vx};
+}
+
+function prepareRows(P,G){
+  const specW = (G.w.spec || P.tableW/4) - 8;
+  return model.items.map(it=>{
+    const lines = wrapText(it.spec||'', specW, P.font);
+    const h = Math.max(P.rowMin, 10 + lines.length*P.lineH);
+    return {it, lines, h};
+  });
+}
+
+/* 这一行是否真的有条目内容：除「序号」外的可见列全空 → 视为空行，不打印 */
+function rowHasData(it){
+  if(!it) return false;
+  return visibleCols().some(c=>{
+    if(c.k==='seq') return false;
+    const v = it[c.k];
+    return String(v==null?'':v).trim() !== '';
+  });
+}
+
+function buildPages(){
+  const P=currentProfile(), G=geom(P);
+  // 没有序号的空行（整行都空）直接剔除，不占位、不打印
+  let rows = prepareRows(P,G).filter(r=>rowHasData(r.it));
+  const yStart = P.tableTop + P.hdrH;
+  const avail = (P.tableBottom - P.totalH) - yStart;
+
+  const pages=[]; let cur=[], used=0;
+  for(const r of rows){
+    if(cur.length && (used + r.h > avail || cur.length >= P.maxRows)){ pages.push(cur); cur=[]; used=0; }
+    cur.push(r); used += r.h;
+  }
+  pages.push(cur);
+  if(!pages.length) pages.push([]);
+
+  return pages.map(pageRows=>{
+    let list = pageRows.slice();
+    if(P.fillRows){
+      const slack = avail - list.reduce((s,r)=>s+r.h,0);
+      const blanks = P.maxRows - list.length;
+      if(list.length && slack>0){
+        if(blanks>0){
+          const bh = slack/blanks;
+          for(let k=0;k<blanks;k++) list.push({blank:true, h:bh});
+        } else {
+          const add = slack/list.length;
+          list = list.map(r=>({...r, h:r.h+add}));
+        }
+      } else if(!list.length){
+        const bh = avail/P.maxRows;
+        for(let k=0;k<P.maxRows;k++) list.push({blank:true, h:bh});
+      }
+    }
+    return {rows:list, G};
+  });
+}
+
+function fitText(text, maxW, fs){
+  let s = String(text==null?'':text);
+  let size = fs;
+  while(size>6.5 && measure(s,size)>maxW) size-=0.3;
+  return {text:s, size:size, clipped: measure(s,size)>maxW};
+}
+
+function pageHTML(page, idx, total, P){
+  const {rows,G}=page;
+  const {xs,cx,lx,vx}=G;
+  const W=P.tableW, H=P.pageH;
+  const wcol = xs.map((x,i)=> i<xs.length-1 ? (xs[i+1]-x) : 0);
+
+  // 表头三行
+  const infos=[
+    [['制 单 人：','maker'],['录单日期：','date'],['单据编号：','no']],
+    [['经 办 人：','agent'],['部    门：','dept'],['发货仓库：','warehouse']],
+    [['客    户：','customer'],['摘    要：','summary']]
+  ];
+  let headHTML='';
+  infos.forEach((row,ri)=>{
+    row.forEach(([label,key],ci)=>{
+      const val = model[key]||'';
+      let maxW;
+      if(ci===0) maxW = lx[1]-vx[0]-6;
+      else if(ci===1 && ri===2) maxW = xs[xs.length-1]-vx[1]-6;
+      else if(ci===1) maxW = lx[2]-vx[1]-6;
+      else maxW = xs[xs.length-1]-vx[2]-3;
+      const f = val? fitText(val,maxW,P.font):null;
+      headHTML += `<div class="kv" style="left:${lx[ci]}pt;top:${P.infoBaselines[ri]-P.font*0.86}pt;font-size:${P.font}pt;line-height:1">${esc(label)}</div>`;
+      if(f) headHTML += `<div class="kv" style="left:${vx[ci]}pt;top:${P.infoBaselines[ri]-f.size*0.86}pt;font-size:${f.size}pt;line-height:1;${f.clipped?'max-width:'+maxW+'pt;overflow:hidden':''}">${esc(f.text)}</div>`;
+    });
+  });
+
+  // 表格（列由「列设置」决定：名称、显示、宽度）
+  let ths='';
+  const thBg = P.fill? 'background:#ccffcc;' : 'background:#fff;';
+  G.vis.forEach(c=>{
+    const f = fitText(c.name, (G.w[c.k]||40)-4, P.font);
+    ths += `<th style="width:${G.w[c.k]}pt;height:${P.hdrH}pt;font-size:${f.size}pt;${thBg}">${esc(f.text)}</th>`;
+  });
+
+  // 序号需要累计，由外部传入起始号
+  let body='', rowStart = page.startSeq;
+  rows.forEach((r,ri)=>{
+    const n = r.blank? '' : (rowStart + ri + 1);
+    const it = r.blank? blankItem() : r.it;
+    let tds='';
+    G.vis.forEach(c=>{
+      const k = c.k, cw = G.w[k]||0;
+      if(k==='seq'){
+        tds += `<td style="height:${r.h}pt;padding:0 2.4pt;text-align:center;font-size:${P.font}pt"><span class="c" style="text-align:center">${n}</span></td>`;
+        return;
+      }
+      if(k==='spec'){
+        const inner = r.blank? '' : r.lines.map(ln=>esc(ln)).join('<br>');
+        tds += `<td class="specCell" style="height:${r.h}pt;font-size:${P.font}pt;line-height:${P.lineH}pt;padding:0 4pt;text-align:center">${inner}</td>`;
+        return;
+      }
+      let align='center';
+      if(k==='code') align='left';
+      if(k==='qty') align='right';
+      const txt = it[k]||'';
+      const f = txt? fitText(txt, cw-4.8, P.font):null;
+      tds += `<td style="height:${r.h}pt;padding:0 2.4pt;text-align:${align};font-size:${f?f.size:P.font}pt"><span class="c" style="text-align:${align}">${f?esc(f.text):''}</span></td>`;
+    });
+    body += `<tr>${tds}</tr>`;
+  });
+
+  const yBottom = P.tableTop + P.hdrH + rows.reduce((s,r)=>s+r.h,0);
+  const totalTop = yBottom, totalBottom = yBottom + P.totalH;
+  const isLast = idx===total-1;
+  const pageQty = rows.filter(r=>!r.blank).reduce((s,r)=>s+num(r.it.qty),0);
+  const showQty = isLast ? totalQty(model.items) : fmtQty(pageQty);
+  const totalLabel = isLast?'合计':'小计';
+  const qi = G.vis.findIndex(c=>c.k==='qty');
+  let totalRow;
+  if(qi>=0){
+    const before = qi, after = G.vis.length-qi-1;
+    totalRow = '<tr>'
+      + (before>0 ? `<td colspan="${before}" style="height:${P.totalH}pt;font-size:${P.font}pt;padding-left:1.7pt">${totalLabel}</td>` : '')
+      + `<td style="height:${P.totalH}pt;font-size:${P.font}pt;text-align:center">${showQty}</td>`
+      + (after>0 ? `<td colspan="${after}" style="height:${P.totalH}pt"></td>` : '')
+      + '</tr>';
+  } else {
+    totalRow = `<tr><td colspan="${G.vis.length}" style="height:${P.totalH}pt;font-size:${P.font}pt;padding-left:1.7pt">${totalLabel}　${showQty}</td></tr>`;
+  }
+
+  const sigY = totalBottom + P.sigOffset;
+  const sigs = ['财务','送货人','购货单位签字'].map((t,i)=>{
+    let text = t, size = P.font;
+    if(i===1 && model.shipper){
+      const maxW = (P.sigX[2] - P.sigX[1]) - 8;
+      const f = fitText('送货人：'+model.shipper, maxW, P.font);
+      text = f.text; size = f.size;
+    }
+    return `<div class="sig" style="left:${P.x0+P.sigX[i]}pt;top:${sigY-size*0.86}pt;font-size:${size}pt;line-height:1">${esc(text)}</div>`;
+  }).join('');
+
+  const titleText = (model.company||'')+'  ' + '送货单';
+  const titleSize = (function(){
+    let ts=P.titleSize;
+    while(ts>9 && measure(titleText, ts) > P.tableW) ts-=0.5;
+    return ts;
+  })();
+  const titleW = measure(titleText, titleSize);
+
+  const pageNo = total>1 ? `<div class="kv" style="right:${P.pageW-(P.x0+P.tableW)}pt;top:${(P.pageNo==='top'?P.titleY:815)-7.5*0.86}pt;font-size:7.5pt;color:#4b5563;line-height:1">第 ${idx+1} 页 / 共 ${total} 页</div>`:'';
+
+  return `<div class="page" style="width:${P.pageW}pt;height:${P.pageH}pt">
+    <div class="ttl" style="left:${P.x0+P.tableW/2-titleW/2}pt;top:${P.titleY-titleSize*0.86}pt;font-size:${titleSize}pt;line-height:1">${esc(titleText)}</div>
+    ${headHTML}
+    <table style="left:${P.x0}pt;top:${P.tableTop}pt;width:${P.tableW}pt">
+      <thead><tr>${ths}</tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot>${totalRow}</tfoot>
+    </table>
+    ${sigs}
+    ${pageNo}
+  </div>`;
+}
+
+function renderPrint(){
+  const P=currentProfile();
+  const pages = buildPages();
+  // 计算每页起始序号
+  let seq=0;
+  const list = pages.map(pg=>{
+    const start=seq;
+    seq += pg.rows.filter(r=>!r.blank).length;
+    return {rows:pg.rows, G:pg.G, startSeq:start};
+  });
+
+  $('#pageRule').textContent = `@media print{ @page{ size:${P.cssSize}; margin:0 } }`;
+  const html = list.map((pg,i)=>pageHTML(pg,i,list.length,P)).join('');
+  $('#printRoot').innerHTML = html;
+  $('#previewScale').innerHTML = html;
+  updateTag();
+  applyZoom();
+  LS.set(DRAFT_KEY, model);
+}
+
+function applyZoom(){
+  const P=currentProfile();
+  const wrap=$('#previewScroll');
+  const availPx = wrap.clientWidth - 28;
+  const pagePx = P.pageW * (96/72);
+  let s = UI.zoom || (availPx/pagePx);
+  s = Math.max(0.2, Math.min(1.6, s));
+  const el = $('#previewScale');
+  el.style.zoom = s;
+  el.style.width = pagePx+'px';
+  $('#zoomLabel').textContent = Math.round(s*100)+'%';
+}
+
+let refreshTimer=null;
+function refresh(){
+  if(refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(()=>{ renderPrint(); }, 180);
+}
+
+/* ============ 单据操作 ============ */
+function nextNo(date){
+  const prefix = 'XS-'+(date||today())+'-';
+  let mx=0;
+  (UI.recs||[]).forEach(r=>{
+    const no=(r.data&&r.data.no)||'';
+    if(no.indexOf(prefix)===0){ const n=parseInt(no.slice(prefix.length),10); if(!isNaN(n)) mx=Math.max(mx,n); }
+  });
+  return prefix+String(mx+1).padStart(5,'0');
+}
+
+function collect(){
+  const keys = UI.cols.map(c=>c.k);
+  model.items = model.items.map(it=>{
+    const o={};
+    keys.forEach(k=>{ if(k!=='seq') o[k] = String(it[k]==null? '' : it[k]); });
+    return o;
+  }).filter(it=>Object.values(it).some(v=>String(v||'').trim()));
+  if(!model.items.length) model.items=[blankItem()];
+  return JSON.parse(JSON.stringify(model));
+}
+
+function newDoc(){
+  model = { company: LS.get(SET_KEY,{}).company || '苏州安驰电子科技有限公司',
+    maker: LS.get(SET_KEY,{}).maker||'', date:today(), no:nextNo(today()), agent: LS.get(SET_KEY,{}).agent||'',
+    shipper: LS.get(SET_KEY,{}).shipper||'',
+    dept:'', warehouse: LS.get(SET_KEY,{}).warehouse||'', customer:'', summary:'', items:[blankItem()] };
+  renderForm(); renderItems(); renderPrint();
+  toast('已新建单据 '+model.no);
+}
+
+function cloneDoc(){
+  const no = nextNo(model.date);
+  model.no = no;
+  renderForm(); renderPrint();
+  toast('已复制为新单据 '+no);
+}
+
+function saveDoc(){
+  if(!model.customer){ toast('请先填写客户名称'); $('#f_customer').focus(); return; }
+  const data = collect();
+  if(!data.no){ data.no = nextNo(data.date); model.no=data.no; }
+  const id = data.date+'_'+data.no;
+  const rec = { id, savedAt:new Date().toLocaleString('zh-CN'), data };
+  UI.recs = (UI.recs||[]).filter(r=>r.id!==id);
+  UI.recs.unshift(rec);
+  if(UI.recs.length>500) UI.recs.length=500;
+  if(!LS.set(REC_KEY, UI.recs)){ toast('浏览器本地存储不可用，请用「导出备份」保存'); }
+
+  // 记住常用 & 商品库
+  const set = LS.get(SET_KEY,{});
+  set.company=data.company; set.maker=data.maker; set.agent=data.agent; set.shipper=data.shipper; set.warehouse=data.warehouse;
+  set.customers = [data.customer].concat((set.customers||[]).filter(c=>c!==data.customer)).slice(0,40);
+  LS.set(SET_KEY, set);
+  renderCustomers(set.customers);
+
+  const lib = LS.get(LIB_KEY,{});
+  data.items.forEach(it=>{
+    if(it.code && (it.name||it.spec)){
+      lib[it.code] = Object.assign(lib[it.code]||{}, {name:it.name,spec:it.spec,unit:it.unit,pin:it.pin});
+    }
+  });
+  LS.set(LIB_KEY, lib);
+
+  renderForm(); renderPrint();
+  toast('已保存：'+data.no);
+}
+
+function openRecords(){
+  const recs = UI.recs||[];
+  const body = recs.length? `<table class="items" style="table-layout:auto">
+    <thead><tr><th>日期</th><th>单据编号</th><th>客户</th><th>数量</th><th>保存时间</th><th style="width:70px">操作</th></tr></thead>
+    <tbody>${recs.map((r,i)=>`<tr>
+      <td style="padding:6px 8px;text-align:center;font-size:12.5px">${esc(r.data.date)}</td>
+      <td style="padding:6px 8px;text-align:center;font-size:12.5px">${esc(r.data.no)}</td>
+      <td style="padding:6px 8px;font-size:12.5px">${esc(r.data.customer)}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:12.5px">${totalQty(r.data.items)}</td>
+      <td style="padding:6px 8px;text-align:center;font-size:12px;color:#6b7280">${esc(r.savedAt||'')}</td>
+      <td style="padding:4px;text-align:center;white-space:nowrap"><button class="btn sm" data-open="${i}">打开</button>
+        <button class="btn sm" data-del="${i}" style="color:#b42318">删除</button></td>
+    </tr>`).join('')}</tbody></table>` : '<div style="color:#6b7280;padding:20px;text-align:center">还没有保存过单据</div>';
+
+  openModal('记录库', body, [
+    {label:'关闭', act:closeModal}
+  ]);
+  $('#modalBox').querySelectorAll('[data-open]').forEach(b=>{
+    b.onclick = ()=>{
+      const r = recs[+b.dataset.open];
+      model = JSON.parse(JSON.stringify(r.data));
+      renderForm(); renderItems(); renderPrint();
+      closeModal(); toast('已打开 '+model.no);
+    };
+  });
+  $('#modalBox').querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick = ()=>{
+      const i = +b.dataset.del;
+      if(!confirm('删除记录 '+recs[i].data.no+'？删除后不可恢复')) return;
+      UI.recs.splice(i,1);
+      LS.set(REC_KEY, UI.recs);
+      toast('已删除记录');
+      openRecords();
+    };
+  });
+}
+
+function doPrint(){
+  collect();
+  renderPrint();
+  const set = LS.get(SET_KEY, {});
+  if(set.printHint === false){ setTimeout(()=>window.print(), 120); return; }
+  showPrintCheck();
+}
+
+/* 打印前确认：左下角出现 file:/// 就是边距/页眉页脚没设对 */
+function showPrintCheck(){
+  const paper = UI.layout==='a4' ? 'A4' : '三联纸241x140';
+  openModal('打印前确认这 4 项', `
+    <div class="helpText">
+      <div style="margin:0 0 9px">① 纸张 = <b>${esc(paper)}</b></div>
+      <div style="margin:0 0 9px">② 边距 = <b>无 / None</b>　<span style="color:#b42318">选「默认」会把浏览器页眉页脚带进来，纸张左下角就会出现 file:///D:/… 这种网址</span></div>
+      <div style="margin:0 0 9px">③ 页眉和页脚 = <b>取消勾选</b>（打印面板「更多设置」里的那一项）　
+        <span style="color:#6b7280">——这是浏览器加的，不是软件印的</span></div>
+      <div style="margin:0 0 9px">④ 缩放 = <b>100%</b>，不要选“适合纸张”</div>
+      <div style="margin-top:14px;padding-top:10px;border-top:1px dashed #d7dee8">
+        <label style="cursor:pointer"><input type="checkbox" id="phNoShow"> 以后不再显示这个提醒（随时可在「打印设置说明」里查看）</label>
+      </div>
+    </div>`, [
+      {label:'取消', act:closeModal},
+      {label:'继续打印', primary:true, act:()=>{
+        const cb = $('#phNoShow');
+        if(cb && cb.checked){
+          const s = LS.get(SET_KEY, {});
+          s.printHint = false;
+          LS.set(SET_KEY, s);
+        }
+        closeModal();
+        setTimeout(()=>window.print(), 150);
+      }}
+    ]);
+}
+
+/* ============ 备份 ============ */
+function backup(){
+  const payload = {type:'送货单生成器备份', version:1, exportedAt:new Date().toISOString(),
+                   records:UI.recs||[], settings:LS.get(SET_KEY,{}), library:LS.get(LIB_KEY,{})};
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='送货单备份_'+today()+'.json';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  toast('已导出备份文件');
+}
+function restore(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange=()=>{
+    const f=inp.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const d=JSON.parse(rd.result);
+        if(!d || !d.records) { toast('备份文件格式不正确'); return; }
+        if(!confirm('将导入 '+d.records.length+' 条记录，覆盖当前记录库，继续？')) return;
+        UI.recs=d.records; LS.set(REC_KEY, UI.recs);
+        if(d.settings) LS.set(SET_KEY, d.settings);
+        if(d.library) LS.set(LIB_KEY, d.library);
+        toast('已导入 '+d.records.length+' 条记录');
+        location.reload();
+      }catch(e){ toast('读取失败：'+e.message); }
+    };
+    rd.readAsText(f,'utf-8');
+  };
+  inp.click();
+}
+
+/* ============ 弹窗 ============ */
+function openModal(title, bodyHTML, buttons){
+  const box=$('#modalBox');
+  box.innerHTML = `<div class="mhead"><b>${esc(title)}</b><span class="spacer"></span>
+      <button class="closeX" id="mClose">×</button></div>
+    <div class="mbody">${bodyHTML}</div>
+    <div class="mfoot">${buttons.map((b,i)=>`<button class="btn ${b.primary?'primary':''}" data-mi="${i}">${esc(b.label)}</button>`).join('')}</div>`;
+  box.querySelector('#mClose').onclick=closeModal;
+  box.querySelectorAll('[data-mi]').forEach(btn=>{
+    btn.onclick = ()=> buttons[+btn.dataset.mi].act();
+  });
+  $('#modalLayer').classList.add('show');
+}
+function closeModal(){ $('#modalLayer').classList.remove('show'); }
+
+function showHelp(){
+  openModal('针式打印机打印设置（LQ-630KII + 三联纸 241×140mm）', `
+    <div class="helpText">
+      <b>一、先在 Windows 里建一个 241×140mm 的纸张</b><br>
+      1. 控制面板 → 设备和打印机 → 选中 <b>Epson LQ-630KII</b> → 上方「打印服务器属性」。<br>
+      2. 勾选「创建新表单」，名称填 <code>三联纸241x140</code>，纸张宽度 <code>24.1 cm</code>，高度 <code>14.0 cm</code>，保存。<br>
+      3. 打印机属性 → 首选项 → 纸张大小选这张新表单；纸张来源选「连续纸 / 拖纸器」。<br><br>
+
+      <b>二、本软件打印</b><br>
+      1. 版式选「三联纸 241×140mm（针式打印机）」。<br>
+      2. 点「打印 / 导出PDF」，打印对话框里：纸张 = 三联纸241x140；缩放 = <b>默认或 100%</b>（不要选“适合纸张”）；边距 = <b>无</b>；取消勾选「页眉和页脚」。<br>
+      <b>若纸左下角出现 file:///D:/… 网址</b>：是打印对话框里「边距」选了“默认”，或「页眉和页脚」没取消勾选——这是浏览器自己加的，不是软件印的。改成边距=无、取消勾选后就不会再出现（Edge 一般会记住这次设置）。<br><br>
+      3. 只想存 PDF 时，打印机选 <b>Microsoft Print to PDF</b> 即可；若该驱动不支持自定义纸张、存出来的 PDF 被缩放，请把版式切到「A4」再存档。<br><br>
+
+      <b>三、套打位置微调</b><br>
+      如果打出来整体偏上或偏下，用工具栏的「上下微调」加减毫米（正数=往下），再打印对照，一般 0.5mm 一级就能对准。<br>
+      左右偏移请在打印机属性里调「可打印区域」或纸张边距，本软件内容宽 201mm，两侧各留约 20mm。<br><br>
+
+      <b>四、其他</b><br>
+      · 三联纸自带复写，一次打印即得三联；多页时每页都会重复表头并标注页码。<br>
+      · 数据保存在本机浏览器里，建议每周点一次「导出备份」，换电脑时用「导入备份」恢复。
+    </div>`, [{label:'知道了', primary:true, act:closeModal}]);
+}
+
+let toastTimer=null;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============ 启动 ============ */
+init();
+</script>
+</body>
+</html>

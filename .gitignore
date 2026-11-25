@@ -1,0 +1,19 @@
+# 系统与编辑器临时文件
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+*.tmp
+*.temp
+
+# Office 临时文件
+~$*
+*.laccdb
+
+# 日志
+*.log
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
