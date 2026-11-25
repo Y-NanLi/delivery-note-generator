@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.19</title>
+<title>送货单 v1.20</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -217,9 +217,9 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.19</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.20</span></span>
     <span class="tag" id="tagNo">未编号</span>
-    <span class="tag" id="tagLayout">三联纸 241×140</span>
+    <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
     <button class="btn ghost" id="btnNew">新建</button>
     <button class="btn ghost" id="btnSave">保存</button>
@@ -306,7 +306,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
           <div class="prow">
             <label>打印版式</label>
             <select id="layout">
-              <option value="tri">三联纸 241×140mm（针式打印机）</option>
+              <option value="tri">三联纸 214.7×139.8mm（针式打印机）</option>
               <option value="a4">A4 纸（激光 / 喷墨）</option>
             </select>
             <span class="tip">三联纸用针式打印机；A4 用激光 / 喷墨</span>
@@ -315,6 +315,11 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
             <label>上下微调</label>
             <input type="number" id="offset" value="0" step="0.5" min="-15" max="15" style="width:84px"> <span style="color:#6b7280;font-size:12px">mm</span>
             <span class="tip">正数往下、负数往上，0.5mm 一档；左右偏移请在打印机首选项里调边距</span>
+          </div>
+          <div class="prow">
+            <label>表格高度</label>
+            <label style="cursor:pointer;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fillTri"> 表格铺到纸底（空白处也留格线）</label>
+            <span class="tip">勾上：明细少时表格一直画到纸底，合计和签字位固定在下方，套打预印表格更齐；不勾：表格跟着明细收，下面留白</span>
           </div>
           <div class="prow">
             <label>字号</label>
@@ -332,7 +337,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
             <span class="tip" id="hintScale">预览按纸张实际比例显示</span>
           </div>
           <div class="pnote">
-            针式打印机：纸张 = <b>三联纸 241×140mm</b>，缩放 = <b>100%</b>（不要选「适合纸张」），边距 = <b>无</b>，取消勾选「页眉和页脚」。<br>
+            针式打印机：纸张 = <b>三联纸 214.7×139.8mm</b>（打印机表单里叫「21.47×13.98」），缩放 = <b>100%</b>（不要选「适合纸张」），边距 = <b>无</b>，取消勾选「页眉和页脚」。<br>
             存电子档：打印机改选 <b>Microsoft Print to PDF</b>，文件名自动是「客户 + 单据编号」。
           </div>
         </div>
@@ -408,8 +413,8 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 /* ============ 版式参数（单位 pt，与模板实测一致） ============ */
 const PROFILES = {
   tri: {
-    key:'tri', name:'三联纸 241×140mm（针式打印机）',
-    pageW:683.03, pageH:396.85, x0:56.5, tableW:570,
+    key:'tri', name:'三联纸 214.7×139.8mm（针式打印机）',
+    pageW:608.4, pageH:396, x0:19.2, tableW:570,
     colRatios:[0.045,0.095,0.098,0.265,0.075,0.052,0.060,0.115,0.195],
     labelRatios:[0,0.315,0.615], valueRatios:[0.098,0.407,0.717],
     titleSize:15.5, titleY:34,
@@ -418,7 +423,7 @@ const PROFILES = {
     rowMin:35, lineH:11.5, font:9, lineW:0.95,
     fill:false, maxRows:6, fillRows:false,
     sigOffset:13, sigX:[8.9,222.8,431.6], pageNo:'top',
-    cssSize:'683.03pt 396.85pt'
+    cssSize:'608.4pt 396pt'
   },
   a4: {
     key:'a4', name:'A4 纸（激光 / 喷墨）',
@@ -540,12 +545,13 @@ let model = {
 function blankItem(){ return {code:'',name:'',spec:'',proj:'',unit:'',qty:'',pin:'',contract:''}; }
 
 let UI = { layout:'tri', ofs:{tri:0, a4:0}, zoom:0, recs:[], cols:defaultCols(), colsCustom:false, opts:{}, optsHidden:{},
-           fs:{title:100, info:100, item:100} };
+           fillTri:false, fs:{title:100, info:100, item:100} };
 const REC_KEY='shd_records_v1', SET_KEY='shd_settings_v1', LIB_KEY='shd_lib_v1', DRAFT_KEY='shd_draft_v1';
 
 /* ============ 初始化 ============ */
 function init(){
   const set = LS.get(SET_KEY, {});
+  UI.fillTri = !!set.fillTri;
   if(set.layout && PROFILES[set.layout]) UI.layout = set.layout;
   if(set.ofs || set.offset!==undefined) UI.ofs = loadOffsets(set);
   UI.cols = loadCols(set);
@@ -574,6 +580,7 @@ function init(){
   buildOptLists();
   renderForm();
   renderFs();
+  const cbFill = $('#fillTri'); if(cbFill) cbFill.checked = !!UI.fillTri;
   renderPrint();
   updateTag();
 }
@@ -644,6 +651,7 @@ function bind(){
   document.querySelectorAll('.fsBtn').forEach(b=>{
     b.onclick = ()=> setFontSize(b.dataset.part, (+(UI.fs[b.dataset.part]||100)) + (+b.dataset.d)*FS_STEP);
   });
+  $('#fillTri').onchange = ()=>{ UI.fillTri = $('#fillTri').checked; saveSettings(); renderPrint(); toast(UI.fillTri?'表格已铺满到纸底':'表格跟着明细收'); };
   $('#fsReset').onclick = ()=>{
     UI.fs = {title:100, info:100, item:100};
     renderFs(); renderPrint(); saveSettings(); toast('三块字号都已复位到 100%');
@@ -661,7 +669,7 @@ function saveSettings(){
   LS.set(SET_KEY, Object.assign(LS.get(SET_KEY,{}), {
     layout:UI.layout, ofs:UI.ofs, company:model.company, maker:model.maker,
     agent:model.agent, shipper:model.shipper, warehouse:model.warehouse,
-    cols:UI.cols, colsCustom:UI.colsCustom, opts:UI.opts, optsHidden:UI.optsHidden, fs:UI.fs
+    cols:UI.cols, colsCustom:UI.colsCustom, opts:UI.opts, optsHidden:UI.optsHidden, fillTri:UI.fillTri, fs:UI.fs
   }));
 }
 /* 改某一块的字号：立刻重排预览并记住 */
@@ -721,7 +729,7 @@ function updateTag(){
   tg.title = cu ? ('客户：' + cu + '　单据编号：' + (no||'未编号')) : ('单据编号：' + (no||'未编号'));
   tg.classList.toggle('hasCust', !!cu);
   const tl = $('#tagLayout');
-  if(tl) tl.textContent = UI.layout==='a4' ? 'A4 纸' : '三联纸 241×140';
+  if(tl) tl.textContent = UI.layout==='a4' ? 'A4 纸' : '三联纸 214.7×139.8';
 }
 
 /* ============ 左侧导航：录单 / 版式字号 / 选项列宽 / 记录备份 ============ */
@@ -1700,12 +1708,17 @@ function rowHasData(it){
   });
 }
 
+/* 合计行的高度：字号放大时行框跟着长，否则字会压在上下两条横线上 */
+function totalHOf(P){
+  const k = fontScale().item;
+  return Math.max(P.totalH, P.font*k*1.55);
+}
 function buildPages(){
   const P=currentProfile(), G=geom(P);
   // 没有序号的空行（整行都空）直接剔除，不占位、不打印
   let rows = prepareRows(P,G).filter(r=>rowHasData(r.it));
   const yStart = P.tableTop + P.hdrH;
-  const avail = (P.tableBottom - P.totalH) - yStart;
+  const avail = (P.tableBottom - totalHOf(P)) - yStart;
 
   const pages=[]; let cur=[], used=0;
   for(const r of rows){
@@ -1717,6 +1730,15 @@ function buildPages(){
 
   return pages.map(pageRows=>{
     let list = pageRows.slice();
+    if(P.key==='tri' && UI.fillTri){
+      // 铺满纸底：剩下的高度按正常行高均分成若干空行，别堆成一个巨行
+      let slack = avail - list.reduce((s,r)=>s+r.h,0);
+      if(slack > 1){
+        const n = Math.max(1, Math.round(slack / P.rowMin));
+        const each = slack / n;
+        for(let k=0;k<n;k++) list.push({blank:true, h:each});
+      }
+    }
     if(P.fillRows){
       const slack = avail - list.reduce((s,r)=>s+r.h,0);
       const blanks = P.maxRows - list.length;
@@ -1823,8 +1845,9 @@ function pageHTML(page, idx, total, P){
     body += `<tr>${tds}</tr>`;
   });
 
+  const totH = totalHOf(P);
   const yBottom = P.tableTop + P.hdrH + rows.reduce((s,r)=>s+r.h,0);
-  const totalTop = yBottom, totalBottom = yBottom + P.totalH;
+  const totalTop = yBottom, totalBottom = yBottom + totH;
   const isLast = idx===total-1;
   const pageQty = rows.filter(r=>!r.blank).reduce((s,r)=>s+num(r.it.qty),0);
   const showQty = isLast ? totalQty(model.items) : fmtQty(pageQty);
@@ -1834,15 +1857,18 @@ function pageHTML(page, idx, total, P){
   if(qi>=0){
     const before = qi, after = G.vis.length-qi-1;
     totalRow = '<tr>'
-      + (before>0 ? `<td colspan="${before}" style="height:${P.totalH}pt;font-size:${fItem}pt;padding-left:1.7pt">${totalLabel}</td>` : '')
-      + `<td style="height:${P.totalH}pt;font-size:${fItem}pt;text-align:center">${showQty}</td>`
-      + (after>0 ? `<td colspan="${after}" style="height:${P.totalH}pt"></td>` : '')
+      + (before>0 ? `<td colspan="${before}" style="height:${totH}pt;font-size:${fItem}pt;padding-left:1.7pt">${totalLabel}</td>` : '')
+      + `<td style="height:${totH}pt;font-size:${fItem}pt;text-align:center">${showQty}</td>`
+      + (after>0 ? `<td colspan="${after}" style="height:${totH}pt"></td>` : '')
       + '</tr>';
   } else {
-    totalRow = `<tr><td colspan="${G.vis.length}" style="height:${P.totalH}pt;font-size:${fItem}pt;padding-left:1.7pt">${totalLabel}　${showQty}</td></tr>`;
+    totalRow = `<tr><td colspan="${G.vis.length}" style="height:${totH}pt;font-size:${fItem}pt;padding-left:1.7pt">${totalLabel}　${showQty}</td></tr>`;
   }
 
-  const sigY = totalBottom + P.sigOffset;
+  // 签字栏：文字顶到「合计」下面那条横线，永远留出至少 SIG_GAP 的空隙。
+  // 以前是按固定基线走，货物明细字号一放大，字就顶到横线上去了。
+  const SIG_GAP = Math.max(10, fItem*0.9);
+  const sigTop = totalBottom + Math.max(P.sigOffset - fItem*0.86, SIG_GAP);
   const sigs = ['财务','送货人','购货单位签字'].map((t,i)=>{
     let text = t, size = fItem;
     if(i===1 && model.shipper){
@@ -1850,7 +1876,7 @@ function pageHTML(page, idx, total, P){
       const f = fitText('送货人：'+model.shipper, maxW, fItem);
       text = f.text; size = f.size;
     }
-    return `<div class="sig" style="left:${P.x0+P.sigX[i]}pt;top:${sigY-size*0.86}pt;font-size:${size}pt;line-height:1">${esc(text)}</div>`;
+    return `<div class="sig" style="left:${P.x0+P.sigX[i]}pt;top:${sigTop}pt;font-size:${size}pt;line-height:1">${esc(text)}</div>`;
   }).join('');
 
   const titleText = (model.company||'')+'  ' + (model.dtype || '送货单');
@@ -2136,7 +2162,7 @@ function doPrintNow(){
 
 /* 打印前确认：左下角出现 file:/// 就是边距/页眉页脚没设对 */
 function showPrintCheck(){
-  const paper = UI.layout==='a4' ? 'A4' : '三联纸241x140';
+  const paper = UI.layout==='a4' ? 'A4' : '三联纸 214.7×139.8（21.47×13.98cm）';
   openModal('打印前确认这 4 项', `
     <div class="helpText">
       <div style="margin:0 0 9px">① 纸张 = <b>${esc(paper)}</b></div>
@@ -2212,16 +2238,16 @@ function openModal(title, bodyHTML, buttons){
 function closeModal(){ $('#modalLayer').classList.remove('show'); }
 
 function showHelp(){
-  openModal('针式打印机打印设置（LQ-630KII + 三联纸 241×140mm）', `
+  openModal('针式打印机打印设置（LQ-300K+/630KII + 三联纸 214.7×139.8mm）', `
     <div class="helpText">
       <b>一、先在 Windows 里建一个 241×140mm 的纸张</b><br>
       1. 控制面板 → 设备和打印机 → 选中 <b>Epson LQ-630KII</b> → 上方「打印服务器属性」。<br>
-      2. 勾选「创建新表单」，名称填 <code>三联纸241x140</code>，纸张宽度 <code>24.1 cm</code>，高度 <code>14.0 cm</code>，保存。<br>
+      2. 勾选「创建新表单」，名称填 <code>三联纸21.47x13.98</code>，纸张宽度 <code>21.47 cm</code>，高度 <code>13.98 cm</code>（四个边距都填 0），保存。<br>
       3. 打印机属性 → 首选项 → 纸张大小选这张新表单；纸张来源选「连续纸 / 拖纸器」。<br><br>
 
       <b>二、本软件打印</b><br>
-      1. 版式选「三联纸 241×140mm（针式打印机）」。<br>
-      2. 点「打印 / 导出PDF」，打印对话框里：纸张 = 三联纸241x140；缩放 = <b>默认或 100%</b>（不要选“适合纸张”）；边距 = <b>无</b>；取消勾选「页眉和页脚」。<br>
+      1. 版式选「三联纸 214.7×139.8mm（针式打印机）」。<br>
+      2. 点「打印 / 导出PDF」，打印对话框里：纸张 = 21.47×13.98（或 214.7×139.8mm）；缩放 = <b>默认或 100%</b>（不要选“适合纸张”）；边距 = <b>无</b>；取消勾选「页眉和页脚」。<br>
       <b>若纸左下角出现 file:///D:/… 网址</b>：是打印对话框里「边距」选了“默认”，或「页眉和页脚」没取消勾选——这是浏览器自己加的，不是软件印的。改成边距=无、取消勾选后就不会再出现（Edge 一般会记住这次设置）。<br><br>
       3. 只想存 PDF 时，打印机选 <b>Microsoft Print to PDF</b> 即可；若该驱动不支持自定义纸张、存出来的 PDF 被缩放，请把版式切到「A4」再存档。<br><br>
 
