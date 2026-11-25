@@ -612,7 +612,10 @@ function bind(){
   $('#btnOpts').onclick = showOpts;
   document.querySelectorAll('.railBtn').forEach(b=>{ b.onclick = ()=> showPanel(b.dataset.panel); });
   document.querySelectorAll('.dtypeBtn').forEach(b=>{ b.onclick = ()=>setDtype(b.dataset.dtype); });
-  $('#f_date').addEventListener('change', ()=>{ if(/^XS-/.test(String(model.no||'').trim())) { model.no = nextNo(model.date); $('#f_no').value=model.no; updateTag(); } refresh(); });
+  $('#f_date').addEventListener('change', ()=>{
+    if(isAutoNo(model.no)){ model.no = nextNo(model.date); $('#f_no').value = model.no; updateTag(); }
+    refresh();
+  });
 
   $('#layout').addEventListener('change', e=>{
     UI.layout=e.target.value;
@@ -722,11 +725,28 @@ function syncDtypeUI(){
 function setDtype(t){
   if(!t) return;
   if(model.dtype === t){ syncDtypeUI(); return; }
+  const wasAuto = isAutoNo(model.no);
   model.dtype = t;
+  if(wasAuto){
+    // 送货单 → 样品单：只换前缀，原来的流水号尽量保留；这个号在新前缀下被占了才往后顺延
+    const mm = String(model.no||'').match(/^(?:XS|DB|TQ)-(\d{4}-\d{2}-\d{2})-(\d+)$/);
+    const pre = noPrefix(t) + '-' + (mm ? mm[1] : (model.date || today())) + '-';
+    let num = mm ? parseInt(mm[2], 10) : 0;
+    const used = {};
+    (UI.recs||[]).forEach(r=>{
+      const no = String((r.data && r.data.no) || '');
+      if(no.indexOf(pre) === 0) used[no] = 1;
+    });
+    while(used[pre + String(num).padStart(5,'0')]) num++;
+    model.no = pre + String(num).padStart(5,'0');
+    const el = $('#f_no');
+    if(el) el.value = model.no;
+    updateTag();
+  }
   syncDtypeUI();
   renderPrint();
   LS.set(DRAFT_KEY, model);
-  toast('已切换为「'+t+'」，单据抬头和打印预览同步改好');
+  toast(wasAuto ? ('已切换为「'+t+'」，单据编号改为 '+model.no) : ('已切换为「'+t+'」，单据抬头和打印预览同步改好'));
 }
 function updateTag(){
   const tg = $('#tagNo');
@@ -906,6 +926,8 @@ function openOptPanel(k, anchorEl){
   panel.querySelector('[data-clear]').onclick = ()=>{ setFieldValue(k, ''); closeOptPanel(); };
 }
 function toggleOptPanel(k, anchorEl){
+  // 同一个字段的面板已经开着，再点一次就收起（以前只开不关，面板一直挂在屏幕上挡住操作）
+  if(optPanelEl && optPanelEl.style.display === 'block' && optPanelKey === k){ closeOptPanel(); return; }
   openOptPanel(k, anchorEl);
 }
 function showOpts(){
@@ -1971,14 +1993,25 @@ function refresh(){
 }
 
 /* ============ 单据操作 ============ */
+/* 单据编号前缀按单据类型走：送货单 XS、样品单 DB、提前送货单 TQ（要改只改这一行） */
+const NO_PREFIX = {'送货单':'XS', '样品单':'DB', '提前送货单':'TQ'};
+function noPrefix(dtype){ return NO_PREFIX[String(dtype||'').trim()] || 'XS'; }
+/* 只有本软件自己按规则生成的号才算「自动号」，自己填的其它格式一律不动 */
+function isAutoNo(no){ return /^(XS|DB|TQ)-\d{4}-\d{2}-\d{2}-\d+/.test(String(no||'').trim()); }
+
 function nextNo(date){
-  const prefix = 'XS-'+(date||today())+'-';
-  let mx=0;
-  (UI.recs||[]).forEach(r=>{
-    const no=(r.data&&r.data.no)||'';
-    if(no.indexOf(prefix)===0){ const n=parseInt(no.slice(prefix.length),10); if(!isNaN(n)) mx=Math.max(mx,n); }
-  });
-  return prefix+String(mx+1).padStart(5,'0');
+  const prefix = noPrefix(model.dtype) + '-' + (date || today()) + '-';
+  let mx = 0;
+  const eat = (no)=>{
+    no = String(no||'');
+    if(no.indexOf(prefix) !== 0) return;
+    const n = parseInt(no.slice(prefix.length), 10);
+    if(!isNaN(n)) mx = Math.max(mx, n);
+  };
+  (UI.recs||[]).forEach(r=> eat((r.data && r.data.no) || ''));
+  // 手上这张要是已经是个更大的自动号（手动填的、复制来的），自动号接着往后排，绝不撞号
+  eat(model.no);
+  return prefix + String(mx+1).padStart(5,'0');
 }
 /* 编号留空时，真正要印/要存的那一刻才补一个：按当天已存单据的流水往后排 */
 function ensureNo(){
