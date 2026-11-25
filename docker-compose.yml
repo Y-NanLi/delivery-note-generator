@@ -1,16 +1,45 @@
-# 送货单生成器 —— fnOS / Docker 部署
+# 送货单生成器 —— fnOS / NAS 部署（单文件两种模式）
 #
-# 用法：把本文件放到 NAS 上的一个空目录（例如 /vol1/1000/docker/delivery-note），
-#      然后 `docker compose up -d`，或直接在 fnOS「Docker → Compose 项目」里创建。
-#      访问 http://NAS的IP:8088 即可（index.html 会自动跳到 送货单.html）。
+#   镜像模式（默认，推荐）：docker compose up -d
+#       拉 ghcr.io 现成镜像 + Watchtower 每 5 分钟自动更新
 #
-# 同步逻辑：先试 GitHub（走 gh-proxy 加速），失败自动回落 Gitee；
-#          每 5 分钟对齐一次远端 master（fetch + reset --hard，不会冲突）。
-# 注意：单据数据存在浏览器 localStorage，按访问地址隔离，
-#      从 file:// 迁到 http:// 访问需要用软件里的「导出备份 / 导入备份」搬一次。
+#   源码同步模式：把 .env 里 COMPOSE_PROFILES 改成 source 后 docker compose up -d
+#       或临时：docker compose --profile source up -d
+#       （容器内 git 每 5 分钟对齐远端，先 GitHub 后 Gitee）
+#
+# 两种模式都占 8088，不要同时启动；切换前先 docker compose down。
+# 单据数据存在浏览器 localStorage，按访问地址隔离，
+# 从 file:// 迁到 http:// 需要用软件里的「导出备份 / 导入备份」搬一次。
 
 services:
+  # ==================== 镜像模式 ====================
+  web:
+    profiles: ["image"]
+    image: ghcr.io/y-nanli/delivery-note-generator:latest
+    container_name: delivery-note-web
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    labels:
+      # 只让 Watchtower 跟踪这一个容器
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    profiles: ["image"]
+    image: containrrr/watchtower:latest
+    container_name: delivery-note-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+      - TZ=Asia/Shanghai
+
+  # ==================== 源码同步模式 ====================
   sync:
+    profiles: ["source"]
     image: alpine/git:latest
     container_name: delivery-note-sync
     restart: unless-stopped
@@ -40,9 +69,10 @@ services:
         sync || true
         while true; do sleep 300; sync || true; done
 
-  web:
+  web-src:
+    profiles: ["source"]
     image: nginx:alpine
-    container_name: delivery-note-web
+    container_name: delivery-note-web-src
     restart: unless-stopped
     ports:
       - "8088:80"

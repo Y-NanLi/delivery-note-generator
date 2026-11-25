@@ -20,7 +20,9 @@
 | `样张/` | 各种版式 PDF 样张，用于对位置、看分页与合计 |
 | `归档/` | 历史版本快照（按版本号 + 日期） |
 | `index.html` | 首页，自动跳转到 `送货单.html`（仅 Docker/Web 托管时需要） |
-| `docker-compose.yml` | NAS 部署用，定时同步代码 + nginx 托管 |
+| `docker-compose.yml` | NAS 部署用，镜像模式 / 源码同步模式（profile 切换） |
+| `.env` | Compose 默认 profile（`COMPOSE_PROFILES=image`） |
+| `Dockerfile` | 构建镜像用（nginx + 网页本体） |
 
 ## 快速开始
 
@@ -30,44 +32,58 @@
 
 ## Docker 部署（fnOS / 群晖等 NAS）
 
-仓库自带 `docker-compose.yml`，用两个官方镜像：`alpine/git` 定时同步代码，`nginx:alpine` 提供网页，无需构建。
+一个 `docker-compose.yml` 管两种模式，靠 profile 切换。两种模式都占 8088，同一时间只跑一种。
+
+准备：
 
 ```bash
-# 在 NAS 上建一个空目录
 mkdir -p /vol1/1000/docker/delivery-note && cd /vol1/1000/docker/delivery-note
-# 放入 docker-compose.yml 后启动
+# 放入 docker-compose.yml 和 .env
+```
+
+### 镜像模式（默认，推荐）
+
+```bash
 docker compose up -d
 ```
 
-访问 `http://NAS的IP:8088`，`index.html` 会自动跳到 `送货单.html`。
+- 直接拉 `ghcr.io/y-nanli/delivery-note-generator:latest`，容器内不含 git，启动即用；
+- `Watchtower` 每 5 分钟检查镜像是否更新，有更新自动重启容器；
+- 更新链路：`push Gitee → 镜像同步 GitHub（实测数秒）→ Actions 构建（30–60 秒）→ Watchtower（≤5 分钟）`；
+- 看更新日志：`docker logs -f delivery-note-watchtower`；
+- 想立刻重建：GitHub → Actions → build-image → Run workflow。
 
-同步机制：
+### 源码同步模式
 
-- 每 5 分钟 `git fetch` + `git reset --hard origin/master`，强制对齐远端，不产生冲突，nginx 无需重启；
+```bash
+# 把 .env 里 COMPOSE_PROFILES 改成 source，然后
+docker compose up -d
+
+# 或临时指定，不改 .env
+docker compose --profile source up -d
+```
+
+- `alpine/git` 每 5 分钟 `git fetch` + `git reset --hard origin/master`，强制对齐远端，不产生冲突，nginx 无需重启；
 - 先试 GitHub（经 `gh-proxy.com` 加速），失败自动回落 Gitee；两个源都不可用会在日志里报 `all sources failed`；
-- 查看同步状态：`docker logs -f delivery-note-sync`。
+- 看同步状态：`docker logs -f delivery-note-sync`；
+- 首次要求 `./htdocs` 目录为空，否则 clone 失败。
 
-注意：
+### 模式切换
+
+```bash
+# 停掉所有模式（两个 profile 都写上，避免另一模式的容器残留）
+docker compose --profile image --profile source down
+# 改 .env 里的 COMPOSE_PROFILES（image / source）
+docker compose up -d         # 再起目标模式
+```
+
+### 共用注意
 
 - 单据数据存在浏览器 localStorage，按访问地址隔离。从 `file://` 迁到 `http://NASIP:8088` 需用软件内的「导出备份 / 导入备份」搬一次；之后固定用同一地址访问，换 IP 或端口会变成另一份空库。
 - Docker 只托管网页，打印仍由连接打印机的那台电脑完成。
-
-### 方式二：镜像模式 + 自动更新（可选）
-
-仓库带 `Dockerfile` 和 `.github/workflows/build-image.yml`，GitHub 上每次 push 都会自动构建镜像推到 `ghcr.io/y-nanli/delivery-note-generator`，NAS 用 Watchtower 每 5 分钟检查并自动重启容器。
-
-```bash
-# 与方式二选一（都占 8088）
-docker compose -f docker-compose.image.yml up -d
-```
-
-链路：`push Gitee → 镜像同步到 GitHub → Actions 构建 → Watchtower 更新`，最坏延迟约 15–30 分钟。
-
-注意：
-
-- 镜像当前为 public，匿名可拉：`ghcr.io/y-nanli/delivery-note-generator:latest`（实测匿名 token 授权、manifest 均正常）。若日后改成 private，NAS 上需先 `docker login ghcr.io`。
+- 镜像当前为 public，匿名可拉（实测匿名 token 授权、manifest 均正常）。若日后改成 private，NAS 上需先 `docker login ghcr.io`。
 - 目前只构建 `linux/amd64`（绝大多数飞牛/x86 设备适用）；ARM 机型需要在 workflow 里加 `platforms: linux/arm64`。
-- GHCR 拉取不顺时，在 GitHub 仓库加 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` 两个 secrets，Actions 会额外推到 Docker Hub，再把 `docker-compose.image.yml` 里的 `image` 换掉即可。
+- GHCR 拉取不顺时，在 GitHub 仓库加 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` 两个 secrets，Actions 会额外推到 Docker Hub，再把 `docker-compose.yml` 里的 `image` 换掉即可。
 - Watchtower 只更新带 `com.centurylinklabs.watchtower.enable=true` 标签的容器，不会动 NAS 上别的服务。
 
 ## 注意
