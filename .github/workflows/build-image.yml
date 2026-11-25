@@ -10,6 +10,7 @@ on:
       - '.gitignore'
       - '.env*'
       - 'docker-compose*.yml'
+      - 'deploy/**'
   workflow_dispatch:
   # 兜底：Gitee 镜像有时滞后，定时跑一次确保镜像跟上
   schedule:

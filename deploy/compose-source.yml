@@ -1,0 +1,51 @@
+# 源码同步模式：容器内定时 git 拉取，先 GitHub（经加速代理）后 Gitee 回落
+#
+# 用途：飞牛 fnOS「Docker → Compose → 新增项目」里直接粘贴。
+#      ghcr.io 拉不动、或改完要秒级生效时用这个。
+#
+# 注意：
+#   1. 挂载目录首次必须是空的，否则首个 clone 会报 directory not empty；
+#   2. 路径里的 /vol1/1000 按你的用户 ID 改；
+#   3. 与镜像模式二选一，都占 8088。
+
+services:
+  sync:
+    image: alpine/git:latest
+    container_name: delivery-note-sync
+    restart: unless-stopped
+    volumes:
+      - /vol1/1000/docker/delivery-note/htdocs:/repo
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        PRIMARY="https://gh-proxy.com/https://github.com/Y-NanLi/delivery-note-generator.git"
+        BACKUP="https://gitee.com/nan-liGit/delivery-note-generator.git"
+        sync() {
+          for U in "$PRIMARY" "$BACKUP"; do
+            if [ -d /repo/.git ]; then
+              git -C /repo remote set-url origin "$U"
+              if git -C /repo fetch --depth 1 origin master && git -C /repo reset --hard origin/master; then
+                echo "synced from $U $(date)"; return 0
+              fi
+            else
+              if git clone --depth 1 "$U" /repo; then
+                echo "cloned from $U $(date)"; return 0
+              fi
+            fi
+          done
+          echo "all sources failed $(date)"; return 1
+        }
+        sync || true
+        while true; do sleep 300; sync || true; done
+
+  web-src:
+    image: nginx:alpine
+    container_name: delivery-note-web-src
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    volumes:
+      - /vol1/1000/docker/delivery-note/htdocs:/usr/share/nginx/html:ro
+    depends_on:
+      - sync

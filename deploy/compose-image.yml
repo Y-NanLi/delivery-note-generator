@@ -1,0 +1,29 @@
+# 镜像模式：直接拉 ghcr.io 现成镜像 + Watchtower 自动更新
+#
+# 用途：飞牛 fnOS「Docker → Compose → 新增项目」里直接粘贴。
+#      这份没有 profile，粘贴后能直接部署；仓库根的 docker-compose.yml
+#      是带 profile 的完整版，适合 SSH / CLI 使用。
+#
+# 部署后访问 http://NAS的IP:8088
+
+services:
+  web:
+    image: ghcr.io/y-nanli/delivery-note-generator:latest
+    container_name: delivery-note-web
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: delivery-note-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+      - TZ=Asia/Shanghai

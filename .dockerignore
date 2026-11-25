@@ -3,7 +3,9 @@
 .github
 归档
 样张
+deploy
 README.md
+部署说明.md
 docker-compose*.yml
 Dockerfile
 .dockerignore

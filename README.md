@@ -23,6 +23,8 @@
 | `docker-compose.yml` | NAS 部署用，镜像模式 / 源码同步模式（profile 切换） |
 | `.env.example` | Compose 默认 profile 模板（复制成 `.env` 生效，`.env` 本身不入库） |
 | `Dockerfile` | 构建镜像用（nginx + 网页本体） |
+| `deploy/` | 可直接粘贴到飞牛 Docker 界面的两份 compose（镜像模式 / 源码模式） |
+| `部署说明.md` | 飞牛 fnOS 图形界面部署步骤、模式切换、常见报错 |
 
 ## 快速开始
 
@@ -31,6 +33,8 @@
 3. 单据记录保存在本机浏览器里，换电脑请用软件内的「导出备份 / 导入备份」迁移，不要只拷 html 文件。
 
 ## Docker 部署（fnOS / 群晖等 NAS）
+
+图形界面（飞牛 Docker → Compose → 新增项目）的完整步骤见 **[部署说明.md](部署说明.md)**，可直接粘贴的 compose 在 `deploy/` 下。
 
 一个 `docker-compose.yml` 管两种模式，靠 profile 切换。两种模式都占 8088，同一时间只跑一种。
 
