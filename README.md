@@ -21,7 +21,7 @@
 | `归档/` | 历史版本快照（按版本号 + 日期） |
 | `index.html` | 首页，自动跳转到 `送货单.html`（仅 Docker/Web 托管时需要） |
 | `docker-compose.yml` | NAS 部署用，镜像模式 / 源码同步模式（profile 切换） |
-| `.env` | Compose 默认 profile（`COMPOSE_PROFILES=image`） |
+| `.env.example` | Compose 默认 profile 模板（复制成 `.env` 生效，`.env` 本身不入库） |
 | `Dockerfile` | 构建镜像用（nginx + 网页本体） |
 
 ## 快速开始
@@ -38,7 +38,8 @@
 
 ```bash
 mkdir -p /vol1/1000/docker/delivery-note && cd /vol1/1000/docker/delivery-note
-# 放入 docker-compose.yml 和 .env
+# 放入 docker-compose.yml 和 .env.example，然后生成实际配置
+cp .env.example .env
 ```
 
 ### 镜像模式（默认，推荐）
@@ -80,6 +81,7 @@ docker compose up -d         # 再起目标模式
 ### 共用注意
 
 - 单据数据存在浏览器 localStorage，按访问地址隔离。从 `file://` 迁到 `http://NASIP:8088` 需用软件内的「导出备份 / 导入备份」搬一次；之后固定用同一地址访问，换 IP 或端口会变成另一份空库。
+- 没有 `.env` 时 `docker compose up -d` 会报 `no service selected`，此时改用 `docker compose --profile image up -d`（源码模式同理换 `source`）。
 - Docker 只托管网页，打印仍由连接打印机的那台电脑完成。
 - 镜像当前为 public，匿名可拉（实测匿名 token 授权、manifest 均正常）。若日后改成 private，NAS 上需先 `docker login ghcr.io`。
 - 目前只构建 `linux/amd64`（绝大多数飞牛/x86 设备适用）；ARM 机型需要在 workflow 里加 `platforms: linux/arm64`。

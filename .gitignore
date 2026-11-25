@@ -17,3 +17,7 @@ Desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# 本地配置（模板见 .env.example，避免把可能的密钥带进仓库）
+.env
+.env.local
