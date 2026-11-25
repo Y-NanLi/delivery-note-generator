@@ -87,7 +87,7 @@ docker compose up -d         # 再起目标模式
 - 单据数据存在浏览器 localStorage，按访问地址隔离。从 `file://` 迁到 `http://NASIP:8088` 需用软件内的「导出备份 / 导入备份」搬一次；之后固定用同一地址访问，换 IP 或端口会变成另一份空库。
 - 没有 `.env` 时 `docker compose up -d` 会报 `no service selected`，此时改用 `docker compose --profile image up -d`（源码模式同理换 `source`）。
 - Docker 只托管网页，打印仍由连接打印机的那台电脑完成。
-- 镜像当前为 public，匿名可拉（实测匿名 token 授权、manifest 均正常）。若日后改成 private，NAS 上需先 `docker login ghcr.io`。
+- 镜像当前为 public，匿名可拉。国内建议直接用镜像站前缀 `ghcr.nju.edu.cn/y-nanli/delivery-note-generator:latest`（飞牛的「加速源」只对 docker.io 生效，管不到 ghcr.io，详见 [部署说明.md](部署说明.md)）。若日后改成 private，NAS 上需先 `docker login`。
 - 目前只构建 `linux/amd64`（绝大多数飞牛/x86 设备适用）；ARM 机型需要在 workflow 里加 `platforms: linux/arm64`。
 - GHCR 拉取不顺时，在 GitHub 仓库加 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` 两个 secrets，Actions 会额外推到 Docker Hub，再把 `docker-compose.yml` 里的 `image` 换掉即可。
 - Watchtower 只更新带 `com.centurylinklabs.watchtower.enable=true` 标签的容器，不会动 NAS 上别的服务。

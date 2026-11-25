@@ -1,14 +1,19 @@
-# 镜像模式：直接拉 ghcr.io 现成镜像 + Watchtower 自动更新
+# 镜像模式：直接拉现成镜像 + Watchtower 自动更新
 #
 # 用途：飞牛 fnOS「Docker → Compose → 新增项目」里直接粘贴。
 #      这份没有 profile，粘贴后能直接部署；仓库根的 docker-compose.yml
 #      是带 profile 的完整版，适合 SSH / CLI 使用。
 #
+# 镜像地址二选一（国内优先用镜像站，实测快很多）：
+#   ghcr.nju.edu.cn/y-nanli/delivery-note-generator:latest     ← 南京大学镜像站，国内直连
+#   ghcr.io/y-nanli/delivery-note-generator:latest             ← GitHub 官方源，国内常慢
+#
 # 部署后访问 http://NAS的IP:8088
 
 services:
   web:
-    image: ghcr.io/y-nanli/delivery-note-generator:latest
+    image: ghcr.nju.edu.cn/y-nanli/delivery-note-generator:latest
+    # 若镜像站不可用，换成：ghcr.io/y-nanli/delivery-note-generator:latest
     container_name: delivery-note-web
     restart: unless-stopped
     ports:
