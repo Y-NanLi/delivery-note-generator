@@ -65,7 +65,8 @@ docker compose -f docker-compose.image.yml up -d
 
 注意：
 
-- 首次推送后，到 GitHub 仓库 → Packages → 该镜像 → Package settings → Change visibility 改成 **Public**，否则 NAS 匿名拉取会 401。
+- 镜像当前为 public，匿名可拉：`ghcr.io/y-nanli/delivery-note-generator:latest`（实测匿名 token 授权、manifest 均正常）。若日后改成 private，NAS 上需先 `docker login ghcr.io`。
+- 目前只构建 `linux/amd64`（绝大多数飞牛/x86 设备适用）；ARM 机型需要在 workflow 里加 `platforms: linux/arm64`。
 - GHCR 拉取不顺时，在 GitHub 仓库加 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` 两个 secrets，Actions 会额外推到 Docker Hub，再把 `docker-compose.image.yml` 里的 `image` 换掉即可。
 - Watchtower 只更新带 `com.centurylinklabs.watchtower.enable=true` 标签的容器，不会动 NAS 上别的服务。
 
