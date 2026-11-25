@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.25</title>
+<title>送货单 v1.26</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -230,7 +230,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.25</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.26</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
@@ -1268,18 +1268,20 @@ function specPopMark(){
 }
 function specPopShow(inp){
   if(!UI.suggest || specComposing || !inp || inp.dataset.k !== 'spec') return;
-  const rows = specSearch(inp.value);
-  if(!rows.length){ hideSpecPop(); return; }
+  const q = prodNorm(inp.value);
+  if(!q){ hideSpecPop(); return; }        /* 没输入一个字都不弹，免得挡住下面几行明细 */
+  const rows = specSearch(q);
+  if(!rows.length){ hideSpecPop(); return; }   /* 输入了但库里没有相近的，也不弹 */
   const el = specPopEnsure();
   specPopRow = rows; specPopIn = -1; specPopFor = inp;
-  const q = prodNorm(inp.value), ql = q.toLowerCase();
+  const ql = q.toLowerCase();
   const hl = sp=>{
     if(!ql) return esc(sp);
     const i = sp.toLowerCase().indexOf(ql);
     return i < 0 ? esc(sp)
       : esc(sp.slice(0, i)) + '<b>' + esc(sp.slice(i, i + ql.length)) + '</b>' + esc(sp.slice(i + ql.length));
   };
-  el.querySelector('.specPopHead').textContent = (q ? '匹配 ' : '最近用过 ') + rows.length + ' 条 · ↑↓ 选择 · Enter 填入';
+  el.querySelector('.specPopHead').textContent = '匹配 ' + rows.length + ' 条 · ↑↓ 选择 · Enter 填入';
   el.querySelector('.specPopBody').innerHTML = rows.map((x, n)=>
     '<div class="specIt" data-n="' + n + '"><span class="specT">' + hl(x.r[0]) + '</span><span class="specM">'
     + esc(x.r[1] || '—') + (x.r[2] ? ' · ' + esc(x.r[2]) : '') + '</span></div>').join('');
