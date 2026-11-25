@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.26</title>
+<title>送货单 v1.27</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -230,7 +230,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.26</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.27</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
@@ -293,6 +293,8 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
       <div class="card">
         <div class="card-title">货物明细
           <span class="sub">单击任意格直接改，回车跳下一格；Excel 里 Ctrl+C → 回表格 Ctrl+V 整块粘贴；双击表头改列名；拖表头右边界调列宽</span>
+          <span class="spacer"></span>
+          <span class="sub" id="prodCountBox" title="存货名称、规格型号、单位三项都填了才计入">已存商品 <b id="prodCount">0</b> 条</span>
         </div>
         <div class="itemTools">
           <button class="btn sm" id="btnAdd">添加行</button>
@@ -304,7 +306,6 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
           <button class="btn sm primary" id="btnImport">导入明细</button>
           <input type="file" id="fImport" accept=".xlsx,.csv,.txt,.xls" style="display:none">
           <span class="totalBox">合计数量<b id="totalQty">0</b></span>
-          <span class="totalBox prodBox">已存商品<b id="prodCount">0</b>条</span>
         </div>
         <div class="itemScroll">
           <table class="items" id="itemTable">
@@ -1175,11 +1176,11 @@ function prodPut(spec, name, unit){
   if(!spec) return false;
   name = String(name==null? '' : name).trim();
   unit = String(unit==null? '' : unit).trim();
-  if(!name && !unit && spec.length < 2) return false;   /* 只填规格也记（录入时条数立刻涨），单字当误触不记 */
   prodLoad();
   const idx = PRODM.get(spec);
   const old = idx==null? null : PRODL[idx];
   const merged = [spec, name || (old? old[1] : ''), unit || (old? old[2] : '')];
+  if(!merged[1] || !merged[2]) return false;      /* 存货名称、规格型号、单位三项齐全才记 */
   if(old && old[1]===merged[1] && old[2]===merged[2]){ return false; }
   if(idx!=null) PRODL.splice(idx, 1);
   PRODL.push(merged);
