@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.27</title>
+<title>送货单 v1.28</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -126,6 +126,9 @@ select,input{font-family:inherit}
 .specT{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .specT b{color:#1f6feb}
 .specM{flex:0 1 46%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9aa3af;font-size:11.5px;text-align:right}
+.specDel{flex:0 0 auto;width:18px;height:18px;line-height:18px;text-align:center;border-radius:4px;
+  color:#94a3b8;font-size:14px;cursor:pointer;user-select:none}
+.specDel:hover{color:#dc2626;background:#fee2e2}
 @media print{.specPop{display:none !important}}
 
 .optBox{margin-top:6px;max-height:52vh;overflow:auto}
@@ -230,7 +233,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.27</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.28</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
@@ -1253,6 +1256,13 @@ function specPopEnsure(){
   specPopEl.innerHTML = '<div class="specPopHead"></div><div class="specPopBody"></div>';
   document.body.appendChild(specPopEl);
   specPopEl.addEventListener('mousedown', e=>{
+    const del = e.target.closest ? e.target.closest('.specDel') : null;
+    if(del){                            /* 点行尾 × 只删除这条库数据，不选中 */
+      e.preventDefault(); e.stopPropagation();
+      const row = specPopRow && specPopRow[+del.dataset.n] && specPopRow[+del.dataset.n].r;
+      if(row) specDel(row[0]);
+      return;
+    }
     const it = e.target.closest ? e.target.closest('.specIt') : null;
     if(!it) return;
     e.preventDefault();                 /* 保住输入框焦点，不触发 blur 覆盖 */
@@ -1285,7 +1295,8 @@ function specPopShow(inp){
   el.querySelector('.specPopHead').textContent = '匹配 ' + rows.length + ' 条 · ↑↓ 选择 · Enter 填入';
   el.querySelector('.specPopBody').innerHTML = rows.map((x, n)=>
     '<div class="specIt" data-n="' + n + '"><span class="specT">' + hl(x.r[0]) + '</span><span class="specM">'
-    + esc(x.r[1] || '—') + (x.r[2] ? ' · ' + esc(x.r[2]) : '') + '</span></div>').join('');
+    + esc(x.r[1] || '—') + (x.r[2] ? ' · ' + esc(x.r[2]) : '') + '</span>'
+    + '<span class="specDel" data-n="' + n + '" title="从货物明细库删掉这条（已开出的单据不受影响）">×</span></div>').join('');
   el.style.display = 'block';
   const r = inp.getBoundingClientRect();
   el.style.width = Math.max(240, Math.min(Math.max(r.width, 300), window.innerWidth - 20)) + 'px';
@@ -1327,6 +1338,19 @@ function specPopPick(n){
   if(row[1]) got.push('名称「' + row[1] + '」');
   if(row[2]) got.push('单位「' + row[2] + '」');
   toast('已填入规格' + (got.length ? '，带出' + got.join('、') : ''));
+  return true;
+}
+/* 从货物明细库里删掉一条：只影响以后自动带出，已经存下的单据不变 */
+function specDel(spec){
+  prodLoad();
+  const idx = PRODM.get(prodNorm(spec));
+  if(idx == null) return false;
+  const nm = PRODL[idx][1] || '';
+  PRODL.splice(idx, 1);
+  prodRebuild();
+  prodFlush();                          /* 立刻落盘 + 刷新计数 */
+  toast('已从货物明细库删掉：' + spec + (nm ? '（' + nm + '）' : ''));
+  if(specPopFor) specPopShow(specPopFor); else hideSpecPop();
   return true;
 }
 function hideSpecPop(){
