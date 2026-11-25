@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.22</title>
+<title>送货单 v1.23</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -217,7 +217,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.22</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.23</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
@@ -291,6 +291,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
           <button class="btn sm primary" id="btnImport">导入明细</button>
           <input type="file" id="fImport" accept=".xlsx,.csv,.txt,.xls" style="display:none">
           <span class="totalBox">合计数量<b id="totalQty">0</b></span>
+          <span class="totalBox prodBox">已存商品<b id="prodCount">0</b>条</span>
         </div>
         <div class="itemScroll">
           <table class="items" id="itemTable">
@@ -377,7 +378,13 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
             <label>备份</label>
             <button class="btn sm" id="btnBackup">导出备份</button>
             <button class="btn sm" id="btnRestore">导入备份</button>
-            <span class="tip">备份内含记录库、下拉选项、列设置、字号、上下微调</span>
+            <span class="tip">备份内含记录库、货物明细库、下拉选项、列设置、字号、上下微调</span>
+          </div>
+          <div class="prow">
+            <label>货物明细库</label>
+            <button class="btn sm" id="btnProdExport">导出货物明细</button>
+            <button class="btn sm" id="btnProdImport">导入货物明细</button>
+            <span class="tip" id="prodTip">已存 0 条</span>
           </div>
           <div class="pnote">
             换电脑、重装系统、清理浏览器数据之前，先点 <b>导出备份</b>；到新机器上点 <b>导入备份</b> 即可原样恢复。<br>
@@ -649,6 +656,8 @@ function bind(){
   $('#btnHelp').onclick = showHelp;
   $('#undoBtn').onclick = runUndo;
   $('#btnBackup').onclick = backup;
+  $('#btnProdExport').onclick = exportProd;
+  $('#btnProdImport').onclick = importProd;
   $('#btnRestore').onclick = restore;
   $('#zoomIn').onclick = ()=>{ UI.zoom = Math.min(1.6, Math.round(((UI.zoom||fitZoom())+0.1)*100)/100); applyZoom(); };
   $('#zoomOut').onclick = ()=>{ UI.zoom = Math.max(0.25, Math.round(((UI.zoom||fitZoom())-0.1)*100)/100); applyZoom(); };
@@ -996,6 +1005,8 @@ function renderItems(){
     inp.addEventListener('blur', e=>{
       const i=+e.target.dataset.i, k=e.target.dataset.k;
       if(k==='code') autoFill(i, e.target.value.trim());
+      if(k==='spec'){ fillBySpec(i, e.target.value); prodRememberRow(i); }
+      if(k==='name'||k==='unit') prodRememberRow(i);
     });
     inp.addEventListener('keydown', e=>{
       if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); focusNext(e.target); }
@@ -1058,6 +1069,160 @@ function focusNext(el){
   else if(model.items[i+1]) target=$(`.cellInput[data-i="${i+1}"][data-k="${keys[0]}"]`);
   else { addRow(); target=$(`.cellInput[data-i="${model.items.length-1}"][data-k="${keys[0]}"]`); }
   if(target){ target.focus(); target.select&&target.select(); }
+}
+
+/* ============ 货物明细记忆库：按「规格型号」带出名称/单位 ============ */
+/* 存储刻意做小：
+   · 只存 3 个字段 —— 规格型号 / 存货名称 / 单位，用数组 [spec,name,unit] 存，不写键名；
+   · 同一个规格只留一条（后录的覆盖先录的），最近用过的排到末尾；
+   · 上限 1000 条，超出从头淘汰；空白字符先压缩再存。
+   实测 1000 条约 150KB，远低于浏览器 5MB 上限。 */
+const PROD_KEY = 'shd_prod_v1', PROD_MAX = 1000;
+let PRODL = null, PRODM = null, prodTimer = null;
+
+function prodNorm(s){ return String(s==null? '' : s).replace(/[\s\u3000]+/g, ' ').trim(); }
+function prodRebuild(){
+  PRODM = new Map();
+  PRODL.forEach((r, i)=>PRODM.set(r[0], i));
+}
+function prodLoad(){
+  if(PRODL && PRODM) return;
+  if(!PRODL){
+  PRODL = [];
+  const d = LS.get(PROD_KEY, null);
+  if(d && Array.isArray(d.t)){
+    d.t.forEach(r=>{
+      if(!Array.isArray(r) || !r.length) return;
+      const sp = prodNorm(r[0]);
+      if(!sp) return;
+      PRODL.push([sp, String(r[1]||''), String(r[2]||'')]);
+    });
+  }else{
+    // 老用户：把以前按「存货编号」存的商品库迁一份过来，不丢历史
+    const lib = LS.get(LIB_KEY, {}) || {};
+    const seen = {};
+    Object.keys(lib).forEach(code=>{
+      const v = lib[code];
+      if(!v) return;
+      const sp = prodNorm(v.spec);
+      if(!sp || seen[sp]) return;
+      seen[sp] = 1;
+      PRODL.push([sp, String(v.name||''), String(v.unit||'')]);
+    });
+    if(PRODL.length) prodFlush();
+  }
+  }
+  prodRebuild();
+  updateProdCount();
+}
+function prodLookup(spec){
+  prodLoad();
+  const sp = prodNorm(spec);
+  if(!sp) return null;
+  const i = PRODM.get(sp);
+  return i==null? null : PRODL[i];
+}
+/* 写一条：同规格覆盖（只更新非空字段），并挪到末尾表示最近使用 */
+function prodPut(spec, name, unit){
+  spec = prodNorm(spec);
+  if(!spec) return false;
+  name = String(name==null? '' : name).trim();
+  unit = String(unit==null? '' : unit).trim();
+  if(!name && !unit) return false;
+  prodLoad();
+  const idx = PRODM.get(spec);
+  const old = idx==null? null : PRODL[idx];
+  const merged = [spec, name || (old? old[1] : ''), unit || (old? old[2] : '')];
+  if(old && old[1]===merged[1] && old[2]===merged[2]){ return false; }
+  if(idx!=null) PRODL.splice(idx, 1);
+  PRODL.push(merged);
+  if(PRODL.length > PROD_MAX) PRODL.splice(0, PRODL.length - PROD_MAX);
+  prodRebuild();
+  return true;
+}
+function prodFlush(){
+  if(!PRODL) return;
+  if(prodTimer){ clearTimeout(prodTimer); prodTimer = null; }
+  if(!LS.set(PROD_KEY, {v:2, t:PRODL})){
+    toast('浏览器存储已满，货物明细库没存上，建议先「导出货物明细」再清理');
+  }
+  updateProdCount();
+}
+/* 录入时合并写盘（1.2 秒内多次改动只写一次），不每敲一下就写 */
+function prodDirty(){
+  if(prodTimer) clearTimeout(prodTimer);
+  prodTimer = setTimeout(prodFlush, 1200);
+}
+function updateProdCount(){
+  const n = PRODL? PRODL.length : 0;
+  const a = $('#prodCount'); if(a) a.textContent = n;
+  const b = $('#prodTip'); if(b) b.textContent = '已存 ' + n + ' 条（按规格型号带出名称、单位，最多 ' + PROD_MAX + ' 条）';
+}
+function prodRememberRow(i){
+  const it = model.items[i];
+  if(!it) return;
+  if(prodPut(it.spec, it.name, it.unit)){ prodDirty(); updateProdCount(); }
+}
+/* 规格型号填完离开格子：库里有这个规格就补名称/单位，已填的不覆盖 */
+function fillBySpec(i, spec){
+  const v = prodLookup(spec);
+  if(!v) return false;
+  const it = model.items[i];
+  const got = [];
+  if(!String(it.name||'').trim() && v[1]){ it.name = v[1]; got.push('名称'); }
+  if(!String(it.unit||'').trim() && v[2]){ it.unit = v[2]; got.push('单位'); }
+  if(!got.length) return false;
+  const row = document.querySelector('tr[data-i="' + i + '"]');
+  if(row) row.querySelectorAll('.cellInput').forEach(inp=>{ inp.value = it[inp.dataset.k] || ''; });
+  refresh();
+  toast('已按规格带出：' + got.join('、'));
+  return true;
+}
+function exportProd(){
+  prodLoad(); prodFlush();
+  const payload = {type:'送货单货物明细库', v:2, exportedAt:new Date().toLocaleString('zh-CN'),
+                   count:PRODL.length, rows:PRODL.map(r=>[r[0], r[1], r[2]])};
+  const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '送货单货物明细库_' + today() + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+  toast('已导出货物明细 ' + PRODL.length + ' 条');
+}
+function prodImportRows(rows){
+  if(!Array.isArray(rows)) return 0;
+  let n = 0;
+  rows.forEach(r=>{
+    const sp = Array.isArray(r)? prodNorm(r[0]) : prodNorm(r && (r.spec||r[0]));
+    if(!sp) return;
+    const nm = Array.isArray(r)? String(r[1]||'') : String((r && (r.name||r[1]))||'');
+    const un = Array.isArray(r)? String(r[2]||'') : String((r && (r.unit||r[2]))||'');
+    prodPut(sp, nm, un);
+    n++;
+  });
+  return n;
+}
+function importProd(){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = ()=>{
+    const f = inp.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ()=>{
+      try{
+        const d = JSON.parse(rd.result);
+        const rows = d.rows || d.t || d.products || (Array.isArray(d)? d : null);
+        if(!Array.isArray(rows)){ toast('这个文件不是「货物明细库」导出文件'); return; }
+        prodLoad();
+        const n = prodImportRows(rows);
+        prodFlush();
+        toast('已导入货物明细 ' + n + ' 条，现共 ' + PRODL.length + ' 条');
+      }catch(e){ toast('读取失败：' + e.message); }
+    };
+    rd.readAsText(f, 'utf-8');
+  };
+  inp.click();
 }
 
 function autoFill(i, code){
@@ -2120,6 +2285,9 @@ function doSaveNow(data, id){
     }
   });
   LS.set(LIB_KEY, lib);
+  // 这张单里的规格/名称/单位也记进货物明细库（按规格去重），保存时立即落盘
+  data.items.forEach(it=>{ prodPut(it.spec, it.name, it.unit); });
+  prodFlush();
 
   closeModal();
   renderForm(); renderPrint();
@@ -2453,8 +2621,10 @@ function showPrintCheck(){
 
 /* ============ 备份 ============ */
 function backup(){
-  const payload = {type:'送货单生成器备份', version:1, exportedAt:new Date().toISOString(),
-                   records:UI.recs||[], settings:LS.get(SET_KEY,{}), library:LS.get(LIB_KEY,{})};
+  prodLoad();
+  const payload = {type:'送货单生成器备份', version:2, exportedAt:new Date().toISOString(),
+                   records:UI.recs||[], settings:LS.get(SET_KEY,{}), library:LS.get(LIB_KEY,{}),
+                   products:{v:2, t:PRODL}};
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -2475,6 +2645,7 @@ function restore(){
         UI.recs=d.records; LS.set(REC_KEY, UI.recs);
         if(d.settings) LS.set(SET_KEY, d.settings);
         if(d.library) LS.set(LIB_KEY, d.library);
+        if(d.products){ prodLoad(); prodImportRows(d.products.t || d.products); prodFlush(); }
         toast('已导入 '+d.records.length+' 条记录');
         location.reload();
       }catch(e){ toast('读取失败：'+e.message); }
