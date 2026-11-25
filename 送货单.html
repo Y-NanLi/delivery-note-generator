@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.23</title>
+<title>送货单 v1.24</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -115,6 +115,19 @@ select,input{font-family:inherit}
 .optEmpty{padding:10px 12px;color:#9aa3af;font-size:12px}
 .optPanelFoot{display:flex;gap:6px;padding:7px 10px;background:#fafcff;border-top:1px solid #eef2f8}
 @media print{.optPanel{display:none !important}}
+/* 规格输入推荐（类 WPS 联想）：只在「规格型号」格子上出现 */
+.specPop{position:fixed;display:none;z-index:60;background:#fff;border:1px solid #cbd5e1;border-radius:8px;
+  box-shadow:0 10px 26px rgba(15,23,42,.18);font-size:12.5px;overflow:hidden}
+.specPopHead{padding:5px 10px;background:#f5f8fc;border-bottom:1px solid #e7edf5;color:#6b7280;font-size:11.5px}
+.specPopBody{max-height:236px;overflow:auto}
+.specIt{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-bottom:1px solid #f3f6fa}
+.specIt:hover,.specIt.on{background:#eef5ff}
+.specIt.on{box-shadow:inset 2px 0 0 #1f6feb}
+.specT{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.specT b{color:#1f6feb}
+.specM{flex:0 1 46%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9aa3af;font-size:11.5px;text-align:right}
+@media print{.specPop{display:none !important}}
+
 .optBox{margin-top:6px;max-height:52vh;overflow:auto}
 .optLine{display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed #eef0f3}
 .optName{flex:0 0 66px;color:#6b7280;font-size:12px;padding-top:4px}
@@ -217,7 +230,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.23</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.24</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
@@ -358,6 +371,11 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
             <label>明细列</label>
             <button class="btn sm" id="btnCols">列设置</button>
             <span class="tip">增删列、双击改名、拖动排序、拖边界调宽、恢复默认</span>
+          </div>
+          <div class="prow">
+            <label>规格推荐</label>
+            <label style="cursor:pointer;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="ckSuggest"> 输入时显示推荐列表</label>
+            <span class="tip">只对「规格型号」格生效</span>
           </div>
           <div class="pnote">
             <b>加候选</b>：在录入区把内容填进框，点框右边的蓝色 ＋ 就存成候选；保存过的单据里的人、单位也会自动变成候选。<br>
@@ -554,7 +572,7 @@ let model = {
 function blankItem(){ return {code:'',name:'',spec:'',proj:'',unit:'',qty:'',pin:'',contract:''}; }
 
 let UI = { layout:'tri', ofs:{tri:0, a4:0}, zoom:0, recs:[], cols:defaultCols(), colsCustom:false, opts:{}, optsHidden:{},
-           fillTri:false, fs:{title:100, info:100, item:100} };
+           fillTri:false, fs:{title:100, info:100, item:100}, suggest:true };
 const REC_KEY='shd_records_v1', SET_KEY='shd_settings_v1', LIB_KEY='shd_lib_v1', DRAFT_KEY='shd_draft_v1';
 
 /* ============ 初始化 ============ */
@@ -568,6 +586,7 @@ function init(){
   UI.opts = loadOpts(set);
   UI.optsHidden = loadOptsHidden(set);
   UI.fs = loadFs(set);
+  UI.suggest = set.suggest !== false;
   UI.recs = LS.get(REC_KEY, []);
   model.company = set.company || model.company;
   model.maker = set.maker || '';
@@ -590,6 +609,7 @@ function init(){
   renderForm();
   renderFs();
   const cbFill = $('#fillTri'); if(cbFill) cbFill.checked = !!UI.fillTri;
+  const cbSug = $('#ckSuggest'); if(cbSug) cbSug.checked = !!UI.suggest;
   renderPrint();
   updateTag();
 }
@@ -616,6 +636,14 @@ function bind(){
     closeOptPanel();
   });
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOptPanel(); });
+  document.addEventListener('mousedown', e=>{
+    if(!specPopOpen()) return;
+    if(specPopEl.contains(e.target)) return;
+    if(e.target.closest && e.target.closest('.specInput')) return;
+    hideSpecPop();
+  });
+  window.addEventListener('scroll', ()=>{ if(specPopOpen()) hideSpecPop(); }, true);
+  window.addEventListener('resize', ()=>{ if(specPopOpen()) hideSpecPop(); });
   $('#btnOpts').onclick = showOpts;
   document.querySelectorAll('.railBtn').forEach(b=>{ b.onclick = ()=> showPanel(b.dataset.panel); });
   document.querySelectorAll('.dtypeBtn').forEach(b=>{ b.onclick = ()=>setDtype(b.dataset.dtype); });
@@ -667,6 +695,7 @@ function bind(){
     b.onclick = ()=> setFontSize(b.dataset.part, (+(UI.fs[b.dataset.part]||100)) + (+b.dataset.d)*FS_STEP);
   });
   $('#fillTri').onchange = ()=>{ UI.fillTri = $('#fillTri').checked; saveSettings(); renderPrint(); toast(UI.fillTri?'表格已铺满到纸底':'表格跟着明细收'); };
+  $('#ckSuggest').onchange = ()=>{ UI.suggest = $('#ckSuggest').checked; saveSettings(); if(!UI.suggest) hideSpecPop(); toast(UI.suggest?'规格输入推荐已开启':'规格输入推荐已关闭'); };
   $('#fsPreset').onclick = ()=>{
     UI.fs = {title:135, info:130, item:115};
     renderFs(); renderPrint(); saveSettings(); toast('已套用预设：标头 135% / 单据 130% / 明细 115%');
@@ -688,7 +717,7 @@ function saveSettings(){
   LS.set(SET_KEY, Object.assign(LS.get(SET_KEY,{}), {
     layout:UI.layout, ofs:UI.ofs, company:model.company, maker:model.maker,
     agent:model.agent, shipper:model.shipper, warehouse:model.warehouse,
-    cols:UI.cols, colsCustom:UI.colsCustom, opts:UI.opts, optsHidden:UI.optsHidden, fillTri:UI.fillTri, fs:UI.fs
+    cols:UI.cols, colsCustom:UI.colsCustom, opts:UI.opts, optsHidden:UI.optsHidden, fillTri:UI.fillTri, fs:UI.fs, suggest:UI.suggest
   }));
 }
 /* 改某一块的字号：立刻重排预览并记住 */
@@ -1000,15 +1029,32 @@ function renderItems(){
       model.items[i][k] = e.target.value;
       e.target.title = e.target.value;
       if(k==='qty') updateTotal();
+      if(k==='spec') specPopShow(e.target);   // 只有规格型号格给推荐
       refresh();
+    });
+    inp.addEventListener('focus', e=>{
+      if(e.target.dataset.k === 'spec') specPopShow(e.target);
+    });
+    inp.addEventListener('compositionstart', e=>{
+      if(e.target.dataset.k === 'spec') specComposing = true;   // 拼音输入中途不弹
+    });
+    inp.addEventListener('compositionend', e=>{
+      if(e.target.dataset.k === 'spec'){ specComposing = false; specPopShow(e.target); }
     });
     inp.addEventListener('blur', e=>{
       const i=+e.target.dataset.i, k=e.target.dataset.k;
+      specComposing = false;
       if(k==='code') autoFill(i, e.target.value.trim());
-      if(k==='spec'){ fillBySpec(i, e.target.value); prodRememberRow(i); }
+      if(k==='spec'){ hideSpecPop(); fillBySpec(i, e.target.value); prodRememberRow(i); }
       if(k==='name'||k==='unit') prodRememberRow(i);
     });
     inp.addEventListener('keydown', e=>{
+      if(e.target.dataset.k === 'spec' && specPopOpen()){
+        if(e.key==='ArrowDown'){ e.preventDefault(); specPopMove(1); return; }
+        if(e.key==='ArrowUp'){ e.preventDefault(); specPopMove(-1); return; }
+        if(e.key==='Enter'){ e.preventDefault(); specPopPick(); return; }
+        if(e.key==='Escape'){ e.preventDefault(); hideSpecPop(); return; }
+      }
       if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); focusNext(e.target); }
     });
   });
@@ -1163,6 +1209,127 @@ function prodRememberRow(i){
   if(!it) return;
   if(prodPut(it.spec, it.name, it.unit)){ prodDirty(); updateProdCount(); }
 }
+/* ============ 规格输入推荐：候选全部来自货物明细库 ============ */
+/* 只读 PRODL（shd_prod_v1），不另存数据；打分规则：前缀 > 中间包含 > 分词全含 > 按字顺松散匹配 */
+const SUG_MAX = 8;
+let specPopEl = null, specPopRow = null, specPopIn = -1, specPopFor = null, specComposing = false;
+
+function specScore(sp, q){
+  if(!q) return 1;                                  /* 空输入按「最近用过」列最近 8 条 */
+  const s = sp.toLowerCase(), t = q.toLowerCase();
+  if(s.indexOf(t) === 0) return 100;
+  const pos = s.indexOf(t);
+  if(pos > 0) return 80 - Math.min(25, pos);
+  const qs = t.split(' ').filter(Boolean);
+  if(qs.length > 1 && qs.every(x=>s.indexOf(x) >= 0)) return 60;
+  if(t.length >= 2){                                /* 逐字按顺序包含，如「A17-3」能匹配「HT-A17-3B」 */
+    let p = 0;
+    for(let i = 0; i < s.length && p < t.length; i++) if(s.charAt(i) === t.charAt(p)) p++;
+    if(p === t.length) return 20 + 15 * (t.length / s.length);
+  }
+  return 0;
+}
+function specSearch(q){
+  prodLoad();
+  const t = prodNorm(q);
+  const out = [];
+  PRODL.forEach((r, i)=>{
+    const sc = specScore(r[0], t);
+    if(sc > 0) out.push({r:r, i:i, sc:sc});
+  });
+  /* 没输入：按最近用过排；有输入：分高优先，同分短的（更接近原型号）优先，再其次最近用过 */
+  if(!t) out.sort((a, b)=> b.i - a.i);
+  else out.sort((a, b)=> b.sc - a.sc || a.r[0].length - b.r[0].length || b.i - a.i);
+  return out.slice(0, SUG_MAX);
+}
+function specPopOpen(){ return !!(specPopEl && specPopEl.style.display === 'block'); }
+function specPopEnsure(){
+  if(specPopEl) return specPopEl;
+  specPopEl = document.createElement('div');
+  specPopEl.id = 'specPop';
+  specPopEl.className = 'specPop';
+  specPopEl.innerHTML = '<div class="specPopHead"></div><div class="specPopBody"></div>';
+  document.body.appendChild(specPopEl);
+  specPopEl.addEventListener('mousedown', e=>{
+    const it = e.target.closest ? e.target.closest('.specIt') : null;
+    if(!it) return;
+    e.preventDefault();                 /* 保住输入框焦点，不触发 blur 覆盖 */
+    specPopPick(+it.dataset.n);
+  });
+  return specPopEl;
+}
+function specPopMark(){
+  if(!specPopEl) return;
+  const its = specPopEl.querySelectorAll('.specIt');
+  for(let i = 0; i < its.length; i++) its[i].classList.toggle('on', i === specPopIn);
+  const on = specPopEl.querySelector('.specIt.on');
+  if(on && on.scrollIntoView) on.scrollIntoView({block:'nearest'});
+}
+function specPopShow(inp){
+  if(!UI.suggest || specComposing || !inp || inp.dataset.k !== 'spec') return;
+  const rows = specSearch(inp.value);
+  if(!rows.length){ hideSpecPop(); return; }
+  const el = specPopEnsure();
+  specPopRow = rows; specPopIn = -1; specPopFor = inp;
+  const q = prodNorm(inp.value), ql = q.toLowerCase();
+  const hl = sp=>{
+    if(!ql) return esc(sp);
+    const i = sp.toLowerCase().indexOf(ql);
+    return i < 0 ? esc(sp)
+      : esc(sp.slice(0, i)) + '<b>' + esc(sp.slice(i, i + ql.length)) + '</b>' + esc(sp.slice(i + ql.length));
+  };
+  el.querySelector('.specPopHead').textContent = (q ? '匹配 ' : '最近用过 ') + rows.length + ' 条 · ↑↓ 选择 · Enter 填入';
+  el.querySelector('.specPopBody').innerHTML = rows.map((x, n)=>
+    '<div class="specIt" data-n="' + n + '"><span class="specT">' + hl(x.r[0]) + '</span><span class="specM">'
+    + esc(x.r[1] || '—') + (x.r[2] ? ' · ' + esc(x.r[2]) : '') + '</span></div>').join('');
+  el.style.display = 'block';
+  const r = inp.getBoundingClientRect();
+  el.style.width = Math.max(240, Math.min(Math.max(r.width, 300), window.innerWidth - 20)) + 'px';
+  const w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  let top = r.bottom + 3;
+  if(top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 3);
+  el.style.top = top + 'px';
+  specPopMark();
+}
+function specPopMove(d){
+  if(!specPopRow || !specPopRow.length) return;
+  const n = specPopRow.length;
+  specPopIn = specPopIn < 0 ? (d > 0 ? 0 : n - 1) : (specPopIn + d + n) % n;
+  specPopMark();
+}
+function specPopPick(n){
+  const inp = specPopFor, rows = specPopRow;
+  if(!inp || !rows || !rows.length) return false;
+  if(n == null || n < 0) n = specPopIn >= 0 ? specPopIn : 0;
+  const row = rows[n] && rows[n].r;
+  if(!row) return false;
+  const i = +inp.dataset.i;
+  const it = model.items[i];
+  if(it){
+    it.spec = row[0];
+    if(row[1]) it.name = row[1];
+    if(row[2]) it.unit = row[2];
+  }
+  const tr = inp.closest('tr');
+  if(tr) tr.querySelectorAll('.cellInput').forEach(x=>{
+    x.value = (model.items[i] || {})[x.dataset.k] || '';
+    x.title = x.value;
+  });
+  hideSpecPop();
+  refresh();
+  prodRememberRow(i);
+  const got = [];
+  if(row[1]) got.push('名称「' + row[1] + '」');
+  if(row[2]) got.push('单位「' + row[2] + '」');
+  toast('已填入规格' + (got.length ? '，带出' + got.join('、') : ''));
+  return true;
+}
+function hideSpecPop(){
+  if(specPopEl) specPopEl.style.display = 'none';
+  specPopRow = null; specPopIn = -1; specPopFor = null;
+}
+
 /* 规格型号填完离开格子：库里有这个规格就补名称/单位，已填的不覆盖 */
 function fillBySpec(i, spec){
   const v = prodLookup(spec);
