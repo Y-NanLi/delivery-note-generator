@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.21</title>
+<title>送货单 v1.22</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -217,7 +217,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.21</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.22</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
@@ -329,6 +329,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
               <span class="fsItem"><em>标头</em><button class="fsBtn" data-part="title" data-d="-1" title="调小 5%">－</button><span class="fsVal" id="fsTitle">100%</span><button class="fsBtn" data-part="title" data-d="1" title="调大 5%">＋</button></span>
               <span class="fsItem"><em>单据信息</em><button class="fsBtn" data-part="info" data-d="-1" title="调小 5%">－</button><span class="fsVal" id="fsInfo">100%</span><button class="fsBtn" data-part="info" data-d="1" title="调大 5%">＋</button></span>
               <span class="fsItem"><em>货物明细</em><button class="fsBtn" data-part="item" data-d="-1" title="调小 5%">－</button><span class="fsVal" id="fsItem">100%</span><button class="fsBtn" data-part="item" data-d="1" title="调大 5%">＋</button></span>
+              <button class="btn sm" id="fsPreset" title="一键预设：标头 135% / 单据信息 130% / 货物明细 115%">预设</button>
               <button class="btn sm" id="fsReset" title="三块都回到 100%">复位</button>
             </span>
           </div>
@@ -654,6 +655,10 @@ function bind(){
     b.onclick = ()=> setFontSize(b.dataset.part, (+(UI.fs[b.dataset.part]||100)) + (+b.dataset.d)*FS_STEP);
   });
   $('#fillTri').onchange = ()=>{ UI.fillTri = $('#fillTri').checked; saveSettings(); renderPrint(); toast(UI.fillTri?'表格已铺满到纸底':'表格跟着明细收'); };
+  $('#fsPreset').onclick = ()=>{
+    UI.fs = {title:135, info:130, item:115};
+    renderFs(); renderPrint(); saveSettings(); toast('已套用预设：标头 135% / 单据 130% / 明细 115%');
+  };
   $('#fsReset').onclick = ()=>{
     UI.fs = {title:100, info:100, item:100};
     renderFs(); renderPrint(); saveSettings(); toast('三块字号都已复位到 100%');
@@ -1733,12 +1738,20 @@ function buildPages(){
   return pages.map(pageRows=>{
     let list = pageRows.slice();
     if(P.key==='tri' && UI.fillTri){
-      // 铺满纸底：剩下的高度按正常行高均分成若干空行，别堆成一个巨行
-      let slack = avail - list.reduce((s,r)=>s+r.h,0);
+      // 铺满纸底：剩下的高度只按「整行」均分成空行，别堆成一个巨行；
+      // 余量不足一行时不再硬塞一条细缝行（以前会在 6 和 7 之间多出一条空白细行），
+      // 而是把这点余量摊到已有的明细行上，表格照样铺到纸底。
+      const usedH = list.reduce((s,r)=>s+r.h,0);
+      const slack = avail - usedH;
       if(slack > 1){
-        const n = Math.max(1, Math.round(slack / P.rowMin));
-        const each = slack / n;
-        for(let k=0;k<n;k++) list.push({blank:true, h:each});
+        const n = Math.floor(slack / (P.rowMin * 0.92));
+        if(n >= 1){
+          const each = slack / n;
+          for(let k=0;k<n;k++) list.push({blank:true, h:each});
+        } else if(list.length){
+          const add = slack / list.length;
+          list = list.map(r=>({...r, h:r.h+add}));
+        }
       }
     }
     if(P.fillRows){
@@ -2472,7 +2485,7 @@ function showHelp(){
       左右偏移请在打印机属性里调「可打印区域」或纸张边距，本软件内容宽 201mm，两侧各留约 20mm。<br><br>
 
       <b>四、字号想调大调小</b><br>
-      工具栏「字号」里有三组：<b>标头</b>（公司名＋单据类型）、<b>单据信息</b>（制单人/日期/编号/客户那几行）、<b>货物明细</b>（表头＋明细＋合计＋底部签字行）。每组用 － / ＋ 按 5% 一档调，范围 60%~200%，改动立刻在右侧预览生效并自动记住；点「复位」三块都回到 100%。<br>
+      工具栏「字号」里有三组：<b>标头</b>（公司名＋单据类型）、<b>单据信息</b>（制单人/日期/编号/客户那几行）、<b>货物明细</b>（表头＋明细＋合计＋底部签字行）。每组用 － / ＋ 按 5% 一档调，范围 60%~200%，改动立刻在右侧预览生效并自动记住；点「预设」一键套用常用比例（标头 135% / 单据信息 130% / 货物明细 115%），点「复位」三块都回到 100%。<br>
       注意：明细字号调大会让每行变高，一页能装的条数随之减少（自动分页，不会压到纸外）。<br><br>
 
       <b>五、其他</b><br>
