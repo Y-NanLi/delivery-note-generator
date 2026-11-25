@@ -1,0 +1,33 @@
+# 镜像模式（可选）：从镜像仓库拉现成镜像 + Watchtower 自动更新
+#
+# 与默认的 docker-compose.yml 二选一，不要同时启动（都占 8088）。
+#   docker compose -f docker-compose.image.yml up -d
+#
+# 更新链路：
+#   push Gitee → Gitee 镜像推到 GitHub → GitHub Actions 构建镜像 → Watchtower 每 5 分钟检查 → 容器自动重启
+#
+# 如果 GHCR 拉取不顺，把 web 的 image 换成 Docker Hub 版本
+# （需在 GitHub 仓库配好 DOCKERHUB_USERNAME / DOCKERHUB_TOKEN 两个 secrets，Actions 才会推）。
+
+services:
+  web:
+    image: ghcr.io/y-nanli/delivery-note-generator:latest
+    container_name: delivery-note-web
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: delivery-note-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # 只更新带 watchtower.enable 标签的容器，不动 NAS 上其他服务
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+      - TZ=Asia/Shanghai

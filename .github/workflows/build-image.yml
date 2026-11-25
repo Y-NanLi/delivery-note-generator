@@ -1,0 +1,71 @@
+name: build-image
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '样张/**'
+      - '归档/**'
+      - '**.md'
+  workflow_dispatch:
+  # 兜底：Gitee 镜像有时滞后，定时跑一次确保镜像跟上
+  schedule:
+    - cron: '17 */6 * * *'
+
+env:
+  IMAGE_GHCR: ghcr.io/y-nanli/delivery-note-generator
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # 未配置该 secret 时为空，下面两步会被 if 跳过
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_GHCR }}:latest
+            ${{ env.IMAGE_GHCR }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 可选：配了 DOCKERHUB_USERNAME / DOCKERHUB_TOKEN 两个 secrets 才会执行
+      - name: Login Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push to Docker Hub
+        if: env.DOCKERHUB_USERNAME != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/delivery-note-generator:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/delivery-note-generator:${{ github.sha }}

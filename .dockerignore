@@ -1,0 +1,9 @@
+# 构建上下文过滤：镜像里只需要网页本体
+.git
+.github
+归档
+样张
+README.md
+docker-compose*.yml
+Dockerfile
+.dockerignore

@@ -52,6 +52,23 @@ docker compose up -d
 - 单据数据存在浏览器 localStorage，按访问地址隔离。从 `file://` 迁到 `http://NASIP:8088` 需用软件内的「导出备份 / 导入备份」搬一次；之后固定用同一地址访问，换 IP 或端口会变成另一份空库。
 - Docker 只托管网页，打印仍由连接打印机的那台电脑完成。
 
+### 方式二：镜像模式 + 自动更新（可选）
+
+仓库带 `Dockerfile` 和 `.github/workflows/build-image.yml`，GitHub 上每次 push 都会自动构建镜像推到 `ghcr.io/y-nanli/delivery-note-generator`，NAS 用 Watchtower 每 5 分钟检查并自动重启容器。
+
+```bash
+# 与方式二选一（都占 8088）
+docker compose -f docker-compose.image.yml up -d
+```
+
+链路：`push Gitee → 镜像同步到 GitHub → Actions 构建 → Watchtower 更新`，最坏延迟约 15–30 分钟。
+
+注意：
+
+- 首次推送后，到 GitHub 仓库 → Packages → 该镜像 → Package settings → Change visibility 改成 **Public**，否则 NAS 匿名拉取会 401。
+- GHCR 拉取不顺时，在 GitHub 仓库加 `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` 两个 secrets，Actions 会额外推到 Docker Hub，再把 `docker-compose.image.yml` 里的 `image` 换掉即可。
+- Watchtower 只更新带 `com.centurylinklabs.watchtower.enable=true` 标签的容器，不会动 NAS 上别的服务。
+
 ## 注意
 
 - 仅支持 Windows（启动脚本基于 PowerShell / bat）。
