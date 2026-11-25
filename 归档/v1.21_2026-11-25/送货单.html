@@ -1,0 +1,2520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>送货单 v1.21</title>
+<style>
+:root{
+  --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
+  --accent:#1f6feb; --accent-d:#1558c0; --head:#22303f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC",sans-serif;
+  font-size:13px;color:var(--text);background:var(--bg);
+}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ---------- 顶栏 ---------- */
+.topbar{background:var(--head);color:#fff;display:flex;align-items:center;gap:10px;padding:0 14px;height:52px;flex:0 0 auto}
+.topbar .brand{font-size:15px;font-weight:700;letter-spacing:.5px;margin-right:8px}
+.topbar .tag{font-size:11px;color:#9fb3c8;border:1px solid #3b4c60;border-radius:10px;padding:1px 8px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .tag.hasCust{color:#c9d8e8;border-color:#4b6280}
+.topbar .spacer{flex:1}
+.btn{border:0;border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer;font-family:inherit;background:#e8edf3;color:#1f2937;transition:.15s}
+.btn:hover{filter:brightness(.96)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-d)}
+.btn.ghost{background:transparent;color:#dbe4ee;border:1px solid #44576b}
+.btn.ghost:hover{background:#2c3c4e}
+.btn.sm{padding:4px 9px;font-size:12px;border-radius:5px}
+select,input{font-family:inherit}
+
+.workbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
+.workbar label{color:var(--muted);font-size:12px}
+.workbar select,.workbar input[type=number]{padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:#fff;font-size:12px}
+.hint{color:var(--muted);font-size:12px;margin-left:auto}
+.fsGroup{display:flex;align-items:center;gap:5px;padding:3px 7px;border:1px solid var(--line);border-radius:8px;background:#fbfcfe}
+.fsGroup>label{color:var(--muted);font-size:12px}
+.fsItem{display:flex;align-items:center;gap:1px;background:#fff;border:1px solid #e6ecf3;border-radius:6px;padding:1px 2px 1px 6px}
+.fsItem em{font-style:normal;font-size:11.5px;color:#5b6b7d;margin-right:3px;white-space:nowrap}
+.fsBtn{border:0;background:#eef3f9;color:#334155;width:19px;height:19px;line-height:17px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit;padding:0}
+.fsBtn:hover{background:#dbe7f5}
+.fsBtn:active{background:#c9dcf2}
+.fsVal{min-width:40px;text-align:center;font-size:11.5px;color:#1f2937}
+.fsVal.mid{font-weight:700;color:#1f6feb}
+
+/* ---------- 主体 ---------- */
+.main{flex:1;display:flex;min-height:0}
+
+/* 左侧导航栏 */
+.rail{flex:0 0 66px;background:#1b2733;display:flex;flex-direction:column;gap:4px;padding:10px 5px;border-right:1px solid #16202b}
+.railBtn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 1px 8px;border:0;border-radius:9px;background:transparent;
+  color:#9fb3c8;font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:.5px;transition:.15s;line-height:1}
+.railBtn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.92}
+.railBtn:hover{background:#26364a;color:#dbe6f2}
+.railBtn.on{background:#1f6feb;color:#fff;box-shadow:0 2px 8px rgba(31,111,235,.35)}
+.railBtn.on svg{opacity:1}
+
+/* 导航对应的几块页面（同一时刻只显示一块） */
+.pages{flex:1 1 64%;min-width:380px;min-height:0;display:flex;flex-direction:column}
+.pagePanel{flex:1 1 auto;min-height:0;overflow:auto;padding:12px 14px 18px;display:none}
+.pagePanel.on{display:block}
+
+/* 设置页里的行 */
+.prow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed #eef1f5;flex-wrap:wrap}
+.prow:last-child{border-bottom:0}
+.prow>label{flex:0 0 66px;color:var(--muted);font-size:12.5px}
+.prow .tip{color:#94a3b8;font-size:11.5px;line-height:1.6}
+.prow select,.prow input[type=number]{padding:6px 9px;border:1px solid var(--line);border-radius:5px;background:#fff;font-size:12.5px}
+.pnote{color:#64748b;font-size:12px;line-height:1.95;background:#f8fafc;border:1px solid #eef2f7;border-radius:8px;padding:10px 12px;margin-top:12px}
+.pnote b{color:#334155}
+.previewPane{flex:1 1 36%;border-left:1px solid var(--line);background:#dfe4ea;display:flex;flex-direction:column;min-width:262px}
+.previewBar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#f5f7fa;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.previewBar .spacer{flex:1}
+.previewScroll{flex:1;overflow:auto;padding:14px}
+.previewScale{transform-origin:top left}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:12px}
+.card-title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;margin-bottom:10px;color:#111827}
+.card-title .sub{font-weight:400;color:var(--muted);font-size:11.5px}
+.card-title .spacer{flex:1}
+.dtypeBar{display:inline-flex;gap:6px;margin-left:4px}
+.dtypeBtn{border:1px solid #cfd8e3;background:#f7f9fc;color:#44566c;font-size:12px;font-weight:600;padding:3px 11px;border-radius:13px;cursor:pointer;font-family:inherit;transition:.15s}
+.dtypeBtn:hover{border-color:#9cc0f8;color:#1f6feb;background:#eef5ff}
+.dtypeBtn.on{background:#1f6feb;border-color:#1f6feb;color:#fff;box-shadow:0 1px 3px rgba(31,111,235,.35)}
+
+.grid{display:grid;grid-template-columns:70px 1fr 70px 1fr;gap:8px 10px;align-items:center}
+.grid .lbl{color:var(--muted);text-align:right;font-size:12.5px}
+.field{width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:5px;font-size:13px;background:#fff;outline:none}
+.field:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(31,111,235,.12)}
+.grid .span3{grid-column:2 / span 3}
+.grid .span1{grid-column:2 / span 1}
+
+/* 可保存的选项下拉框：输入框 + ＋ 按钮 */
+.fw{display:flex;gap:4px;align-items:center;min-width:0}
+.fw>.field{flex:1 1 auto;min-width:0;width:auto}
+.optAdd{flex:0 0 auto;width:26px;height:28px;padding:0;border:1px solid var(--line);background:#fff;border-radius:5px;
+  color:#1f6feb;font-size:15px;line-height:1;cursor:pointer}
+.optAdd:hover{background:#eaf2fe;border-color:#9cc0f8}
+.optMenu{flex:0 0 auto;width:22px;height:28px;padding:0;border:1px solid var(--line);background:#fff;border-radius:5px;
+  color:#6b7280;font-size:11px;line-height:1;cursor:pointer}
+.optMenu:hover{background:#eaf2fe;border-color:#9cc0f8;color:#1f6feb}
+.optPanel{position:fixed;display:none;z-index:55;min-width:190px;max-width:320px;background:#fff;border:1px solid #cbd5e1;
+  border-radius:8px;box-shadow:0 10px 26px rgba(15,23,42,.18);font-size:13px;overflow:hidden}
+.optPanelHead{display:flex;align-items:center;padding:6px 10px;background:#f5f8fc;border-bottom:1px solid #e7edf5;
+  color:#6b7280;font-size:12px}
+.optPanelHead .optPanelX{margin-left:auto;cursor:pointer;color:#94a3b8;font-size:14px;padding:0 3px}
+.optPanelHead .optPanelX:hover{color:#dc2626}
+.optItem{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;border-bottom:1px solid #f3f6fa}
+.optItem:hover{background:#eef5ff}
+.optItem.on{background:#f0f7ff;color:#1f6feb;font-weight:600}
+.optItem i{font-style:normal;width:14px;color:#1f6feb}
+.optEmpty{padding:10px 12px;color:#9aa3af;font-size:12px}
+.optPanelFoot{display:flex;gap:6px;padding:7px 10px;background:#fafcff;border-top:1px solid #eef2f8}
+@media print{.optPanel{display:none !important}}
+.optBox{margin-top:6px;max-height:52vh;overflow:auto}
+.optLine{display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed #eef0f3}
+.optName{flex:0 0 66px;color:#6b7280;font-size:12px;padding-top:4px}
+.optChips{flex:1;display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:2px;background:#f0f4fa;border:1px solid #dde5f0;border-radius:12px;padding:2px 2px 2px 10px;font-size:12px}
+.chipX{font-style:normal;cursor:pointer;color:#94a3b8;padding:0 5px;border-radius:9px}
+.chipX:hover{color:#dc2626;background:#fee2e2}
+
+/* 明细表 */
+.itemTools{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.totalBox{margin-left:auto;font-size:13px;color:#111827}
+.totalBox b{color:var(--accent);font-size:16px;margin-left:4px}
+
+.itemScroll{max-height:52vh;overflow:auto;border-radius:4px}
+table.items{width:100%;min-width:760px;border-collapse:collapse;table-layout:fixed}
+table.items th{background:#f3f6f9;border:1px solid var(--line);font-weight:700;font-size:12px;color:#374151;padding:6px 3px;text-align:center;white-space:nowrap}
+table.items th:hover{background:#e6eff8}
+.itemScroll thead th{position:sticky;top:0;z-index:2}
+#itemTable th{position:relative}
+.colGrip{position:absolute;top:0;right:-4px;width:10px;height:100%;cursor:col-resize;z-index:3}
+.colGrip:hover{background:rgba(37,99,235,.35);border-radius:2px}
+#itemTable th:hover .colGrip{background:rgba(37,99,235,.28);border-radius:2px}
+body.colResizing{user-select:none}
+body.colResizing,body.colResizing *{cursor:col-resize !important}
+.dragTd{text-align:center;vertical-align:middle;cursor:grab;user-select:none;padding:4px !important}
+.dragHandle{display:inline-block;padding:4px 8px;border:1px solid #cfd8e3;border-radius:5px;
+  background:#f7f9fc;color:#374151;font-size:12px;letter-spacing:1px;white-space:nowrap}
+.dragHandle:hover{background:#e8f1ff;border-color:#2563eb;color:#1d4ed8}
+.dragHandle:active{cursor:grabbing}
+.colTable tr.dragging{opacity:.55;outline:2px dashed #2563eb;outline-offset:-2px;background:#eff6ff}
+.colTable tr.dropBefore td{border-top:3px solid #2563eb}
+.colTable tr.dropAfter td{border-bottom:3px solid #2563eb}
+.colTable tbody tr:hover{background:#f8fbff}
+.colTable .btn.sm{padding:3px 7px}
+table.items td{border:1px solid var(--line);padding:0;vertical-align:middle}
+table.items td input{width:100%;border:0;padding:6px 6px;font-size:12.5px;outline:none;background:transparent}
+table.items td input:focus{background:#eef5ff}
+table.items td.num{text-align:center;color:var(--muted);font-size:12px;background:#fafbfc}
+table.items .specInput{font-size:12px}
+
+.rowSel{width:22px;text-align:center;vertical-align:middle;padding:0}
+table.items td.rowSel input[type=checkbox]{
+  width:14px;height:14px;padding:0;margin:0 auto;display:block;
+  accent-color:var(--accent);cursor:pointer;border:0;background:transparent;outline:none}
+table.items td.rowSel input[type=checkbox]:focus{background:transparent}
+
+/* ---------- 预览页 ---------- */
+.page{
+  position:relative;background:#fff;margin:0 auto 14px;
+  box-shadow:0 2px 10px rgba(20,30,45,.18);
+  overflow:hidden;color:#000;
+  font-family:"SimSun","宋体",serif;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact;
+}
+.page .ttl{position:absolute;white-space:nowrap;font-weight:700}
+.pgShift{position:absolute;left:0;top:0;width:100%;height:100%}
+.page .kv{position:absolute;white-space:nowrap}
+.page .sig{position:absolute;white-space:nowrap}
+.page table{border-collapse:collapse;table-layout:fixed;position:absolute}
+.page table th,.page table td{border:1px solid #000;padding:0;overflow:hidden}
+.page table th{vertical-align:middle;text-align:center;font-weight:700}
+.page table td{vertical-align:middle}
+.page table td .c{display:block;white-space:nowrap;overflow:hidden}
+.page .specCell{text-align:center}
+
+/* ---------- 打印 ---------- */
+@media print{
+  #app,#modalLayer{display:none !important}
+  #printRoot{display:block !important}
+  body{background:#fff}
+  .page{box-shadow:none;margin:0;page-break-after:always;break-after:page}
+  .page:last-child{page-break-after:auto;break-after:auto}
+}
+#printRoot{display:none}
+
+/* ---------- 其他 ---------- */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1f2937;color:#fff;
+  padding:9px 16px;border-radius:6px;font-size:12.5px;opacity:0;pointer-events:none;transition:.2s;z-index:60}
+#toast.show{opacity:1;bottom:34px}
+#undoBar{position:fixed;left:50%;bottom:36px;transform:translateX(-50%) translateY(10px);display:flex;align-items:center;gap:12px;
+  background:#111827;color:#fff;padding:8px 12px 8px 16px;border-radius:8px;font-size:12.5px;
+  opacity:0;pointer-events:none;transition:.2s;z-index:70;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+#undoBar.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+#undoBar .btn.sm{background:#374151;color:#fff;border:1px solid #4b5563}
+#undoBar .btn.sm:hover{background:#4b5563}
+#modalLayer{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+#modalLayer.show{display:flex}
+.modal{background:#fff;border-radius:10px;width:min(880px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.modal .mhead{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.modal .mhead b{font-size:14px}
+.modal .mhead .spacer{flex:1}
+.modal .mbody{padding:14px 16px;overflow:auto}
+.modal .mfoot{padding:10px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.closeX{border:0;background:transparent;font-size:18px;cursor:pointer;color:#6b7280;line-height:1}
+.helpText{font-size:12.5px;color:#374151;line-height:1.85}
+.helpText code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-family:Consolas,monospace}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="topbar">
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.21</span></span>
+    <span class="tag" id="tagNo">未编号</span>
+    <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="btnNew">新建</button>
+    <button class="btn ghost" id="btnSave">保存</button>
+    <button class="btn ghost" id="btnClone">复制本单</button>
+    <button class="btn ghost" id="btnXls" title="按当前列设置导出真正的 .xlsx，文件名同另存 PDF">导出 Excel</button>
+    <button class="btn primary" id="btnPrint">打印 / 导出PDF</button>
+  </div>
+
+  <div class="main">
+    <nav class="rail" id="rail">
+      <button class="railBtn on" data-panel="doc" title="录单：单据信息 + 货物明细"><svg viewBox="0 0 24 24"><rect x="5.5" y="3" width="13" height="18" rx="1.6"/><path d="M8.6 8.2h6.8M8.6 11.7h6.8M8.6 15.2h4.4"/></svg><span>录单</span></button>
+      <button class="railBtn" data-panel="print" title="打印版式、上下微调、三块字号"><svg viewBox="0 0 24 24"><rect x="3.6" y="8" width="16.8" height="11" rx="1.6"/><path d="M7.6 8V4.6h8.8v3.4"/><path d="M7.6 14.6h8.8"/></svg><span>版式字号</span></button>
+      <button class="railBtn" data-panel="opts" title="下拉候选与明细列设置"><svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16"/><circle cx="9.5" cy="6.5" r="2.1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2.1" fill="currentColor" stroke="none"/><circle cx="8" cy="17.5" r="2.1" fill="currentColor" stroke="none"/></svg><span>选项列宽</span></button>
+      <button class="railBtn" data-panel="store" title="记录库与备份"><svg viewBox="0 0 24 24"><path d="M4.8 7.4c0-1.7 3.2-3 7.2-3s7.2 1.3 7.2 3v9.2c0 1.7-3.2 3-7.2 3s-7.2-1.3-7.2-3z"/><path d="M4.8 12c0 1.7 3.2 3 7.2 3s7.2-1.3 7.2-3"/></svg><span>记录备份</span></button>
+    </nav>
+
+    <div class="pages" id="pages">
+      <div class="pagePanel on" id="panelDoc">
+      <div class="card">
+        <div class="card-title">单据信息
+          <span class="dtypeBar">
+            <button class="dtypeBtn on" data-dtype="送货单">送货单</button>
+            <button class="dtypeBtn" data-dtype="样品单">样品单</button>
+            <button class="dtypeBtn" data-dtype="提前送货单">提前送货单</button>
+          </span>
+          <span class="sub">六个下拉框都能自己加选项（管理见左侧「选项列宽」）</span>
+        </div>
+        <div class="grid">
+          <div class="lbl">公司名称</div>
+          <input class="field span3" id="f_company" placeholder="单位抬头">
+          <div class="lbl">单据编号</div>
+          <input class="field" id="f_no" placeholder="不填则保存/打印时自动编号">
+          <div class="lbl">录单日期</div>
+          <input class="field" id="f_date" type="date">
+          <div class="lbl">制单人</div>
+          <div class="fw"><input class="field" id="f_maker"  placeholder="点右边＋可存成选项"><button class="optMenu" data-key="maker" title="展开全部候选">▾</button><button class="optAdd" data-key="maker" title="把这一格填的内容存成一个选项">＋</button></div>
+          <div class="lbl">经办人</div>
+          <div class="fw"><input class="field" id="f_agent"  placeholder="点右边＋可存成选项"><button class="optMenu" data-key="agent" title="展开全部候选">▾</button><button class="optAdd" data-key="agent" title="把这一格填的内容存成一个选项">＋</button></div>
+          <div class="lbl">送货人</div>
+          <div class="fw"><input class="field" id="f_shipper"  placeholder="送货人姓名，打印在单据底部"><button class="optMenu" data-key="shipper" title="展开全部候选">▾</button><button class="optAdd" data-key="shipper" title="把这一格填的内容存成一个选项">＋</button></div>
+          <div class="lbl">部门</div>
+          <div class="fw"><input class="field" id="f_dept"  placeholder="点右边＋可存成选项"><button class="optMenu" data-key="dept" title="展开全部候选">▾</button><button class="optAdd" data-key="dept" title="把这一格填的内容存成一个选项">＋</button></div>
+          <div class="lbl">发货仓库</div>
+          <div class="fw"><input class="field" id="f_warehouse"  placeholder="点右边＋可存成选项"><button class="optMenu" data-key="warehouse" title="展开全部候选">▾</button><button class="optAdd" data-key="warehouse" title="把这一格填的内容存成一个选项">＋</button></div>
+          <div class="lbl">客户</div>
+          <div class="fw"><input class="field" id="f_customer"  placeholder="点右边＋可存成选项"><button class="optMenu" data-key="customer" title="展开全部候选">▾</button><button class="optAdd" data-key="customer" title="把这一格填的内容存成一个选项">＋</button></div>
+          <div class="lbl">摘要</div>
+          <input class="field span3" id="f_summary">
+        </div>
+        <datalist id="dlMaker"></datalist>
+        <datalist id="dlAgent"></datalist>
+        <datalist id="dlShipper"></datalist>
+        <datalist id="dlDept"></datalist>
+        <datalist id="dlWarehouse"></datalist>
+        <datalist id="dlCustomer"></datalist>
+      </div>
+
+      <div class="card">
+        <div class="card-title">货物明细
+          <span class="sub">单击任意格直接改，回车跳下一格；Excel 里 Ctrl+C → 回表格 Ctrl+V 整块粘贴；双击表头改列名；拖表头右边界调列宽</span>
+        </div>
+        <div class="itemTools">
+          <button class="btn sm" id="btnAdd">添加行</button>
+          <button class="btn sm" id="btnIns">插入行</button>
+          <button class="btn sm" id="btnDel">删除选中行</button>
+          <button class="btn sm" id="btnUp">上移</button>
+          <button class="btn sm" id="btnDown">下移</button>
+          <button class="btn sm" id="btnTpl">下载模板</button>
+          <button class="btn sm primary" id="btnImport">导入明细</button>
+          <input type="file" id="fImport" accept=".xlsx,.csv,.txt,.xls" style="display:none">
+          <span class="totalBox">合计数量<b id="totalQty">0</b></span>
+        </div>
+        <div class="itemScroll">
+          <table class="items" id="itemTable">
+            <thead><tr id="itemHead"></tr></thead>
+            <tbody id="itemBody"></tbody>
+          </table>
+        </div>
+      </div>
+      </div><!-- /panelDoc -->
+
+      <div class="pagePanel" id="panelPrint">
+        <div class="card">
+          <div class="card-title">版式与字号<span class="sub">改一次就一直记住，下次打开还是这样；三联纸和 A4 各记各的</span></div>
+          <div class="prow">
+            <label>打印版式</label>
+            <select id="layout">
+              <option value="tri">三联纸 214.7×139.8mm（针式打印机）</option>
+              <option value="a4">A4 纸（激光 / 喷墨）</option>
+            </select>
+            <span class="tip">三联纸用针式打印机；A4 用激光 / 喷墨</span>
+          </div>
+          <div class="prow">
+            <label>上下微调</label>
+            <input type="number" id="offset" value="0" step="0.5" min="-15" max="15" style="width:84px"> <span style="color:#6b7280;font-size:12px">mm</span>
+            <span class="tip">正数往下、负数往上，0.5mm 一档；左右偏移请在打印机首选项里调边距</span>
+          </div>
+          <div class="prow">
+            <label>表格高度</label>
+            <label style="cursor:pointer;font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fillTri"> 表格铺到纸底（空白处也留格线）</label>
+            <span class="tip">勾上：明细少时表格一直画到纸底，合计和签字位固定在下方，套打预印表格更齐；不勾：表格跟着明细收，下面留白</span>
+          </div>
+          <div class="prow">
+            <label>字号</label>
+            <span class="fsGroup" id="fsGroup">
+              <label>三块分开调</label>
+              <span class="fsItem"><em>标头</em><button class="fsBtn" data-part="title" data-d="-1" title="调小 5%">－</button><span class="fsVal" id="fsTitle">100%</span><button class="fsBtn" data-part="title" data-d="1" title="调大 5%">＋</button></span>
+              <span class="fsItem"><em>单据信息</em><button class="fsBtn" data-part="info" data-d="-1" title="调小 5%">－</button><span class="fsVal" id="fsInfo">100%</span><button class="fsBtn" data-part="info" data-d="1" title="调大 5%">＋</button></span>
+              <span class="fsItem"><em>货物明细</em><button class="fsBtn" data-part="item" data-d="-1" title="调小 5%">－</button><span class="fsVal" id="fsItem">100%</span><button class="fsBtn" data-part="item" data-d="1" title="调大 5%">＋</button></span>
+              <button class="btn sm" id="fsReset" title="三块都回到 100%">复位</button>
+            </span>
+          </div>
+          <div class="prow">
+            <label>打印设置</label>
+            <button class="btn sm" id="btnHelp">打印设置说明</button>
+            <span class="tip" id="hintScale">预览按纸张实际比例显示</span>
+          </div>
+          <div class="pnote">
+            针式打印机：纸张 = <b>三联纸 214.7×139.8mm</b>（打印机表单里叫「21.47×13.98」），缩放 = <b>100%</b>（不要选「适合纸张」），边距 = <b>无</b>，取消勾选「页眉和页脚」。<br>
+            存电子档：点顶栏 <b>导出 Excel</b> 得到 .xlsx（列设置与纸面一致，合计是真公式）；要 PDF 就把打印机改选 <b>Microsoft Print to PDF</b>，文件名自动是「客户 + 单据编号」。
+          </div>
+        </div>
+      </div><!-- /panelPrint -->
+
+      <div class="pagePanel" id="panelOpts">
+        <div class="card">
+          <div class="card-title">选项与列宽<span class="sub">这里改的是长期设置，所有单据通用</span></div>
+          <div class="prow">
+            <label>下拉选项</label>
+            <button class="btn sm" id="btnOpts" title="查看 / 删除下拉里多余的选项">选项管理</button>
+            <span class="tip">制单人 / 经办人 / 送货人 / 部门 / 发货仓库 / 客户 里多余的候选，在这里删</span>
+          </div>
+          <div class="prow">
+            <label>明细列</label>
+            <button class="btn sm" id="btnCols">列设置</button>
+            <span class="tip">增删列、双击改名、拖动排序、拖边界调宽、恢复默认</span>
+          </div>
+          <div class="pnote">
+            <b>加候选</b>：在录入区把内容填进框，点框右边的蓝色 ＋ 就存成候选；保存过的单据里的人、单位也会自动变成候选。<br>
+            <b>列设置</b>：列名和列宽对三联纸、A4 两种版式同时生效，改完右边预览立刻跟着变。
+          </div>
+        </div>
+      </div><!-- /panelOpts -->
+
+      <div class="pagePanel" id="panelStore">
+        <div class="card">
+          <div class="card-title">记录与备份<span class="sub">单据存在本机浏览器里，建议每周导出一次备份</span></div>
+          <div class="prow">
+            <label>记录库</label>
+            <button class="btn sm" id="btnOpen">打开记录库</button>
+            <span class="tip" id="recCount">已存 0 张</span>
+          </div>
+          <div class="prow">
+            <label>备份</label>
+            <button class="btn sm" id="btnBackup">导出备份</button>
+            <button class="btn sm" id="btnRestore">导入备份</button>
+            <span class="tip">备份内含记录库、下拉选项、列设置、字号、上下微调</span>
+          </div>
+          <div class="pnote">
+            换电脑、重装系统、清理浏览器数据之前，先点 <b>导出备份</b>；到新机器上点 <b>导入备份</b> 即可原样恢复。<br>
+            记录库里可以按名称、客户、日期、单据编号查单，也能把整张单调出来再打印或另存 PDF。
+          </div>
+        </div>
+      </div><!-- /panelStore -->
+    </div><!-- /pages -->
+
+    <div class="previewPane">
+      <div class="previewBar">
+        <span>打印预览</span>
+        <span class="spacer"></span>
+        <button class="btn sm" id="zoomOut">－</button>
+        <span id="zoomLabel" title="点一下恢复到「适应宽度」" style="cursor:pointer;min-width:58px;text-align:center;display:inline-block;user-select:none">适应</span>
+        <button class="btn sm" id="zoomIn">＋</button>
+      </div>
+      <div class="previewScroll" id="previewScroll">
+        <div class="previewScale" id="previewScale"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="printRoot"></div>
+<style id="pageRule"></style>
+
+<div id="modalLayer"><div class="modal" id="modalBox"></div></div>
+<div id="undoBar"><span id="undoText"></span><button class="btn sm" id="undoBtn">撤销</button></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+
+/* ============ 版式参数（单位 pt，与模板实测一致） ============ */
+const PROFILES = {
+  tri: {
+    key:'tri', name:'三联纸 214.7×139.8mm（针式打印机）',
+    pageW:608.4, pageH:396, x0:19.2, tableW:570,
+    colRatios:[0.045,0.095,0.098,0.265,0.075,0.052,0.060,0.115,0.195],
+    labelRatios:[0,0.315,0.615], valueRatios:[0.098,0.407,0.717],
+    titleSize:15.5, titleY:34,
+    infoBaselines:[54,71.5,89],
+    tableTop:101.5, hdrH:15.5, tableBottom:356, totalH:14.5,
+    rowMin:35, lineH:11.5, font:9, lineW:0.95,
+    fill:false, maxRows:6, fillRows:false,
+    sigOffset:13, sigX:[8.9,222.8,431.6], pageNo:'top',
+    cssSize:'608.4pt 396pt'
+  },
+  a4: {
+    key:'a4', name:'A4 纸（激光 / 喷墨）',
+    pageW:595.32, pageH:841.92, x0:29.4, tableW:516.3,
+    colRatios:[28.4/516.3,46.8/516.3,67.7/516.3,100.8/516.3,51.1/516.3,36/516.3,36.8/516.3,73.4/516.3,75.3/516.3],
+    labelRatios:[0.0033,0.3033,0.6048], valueRatios:[0.098,0.3969,0.7062],
+    titleSize:20.04, titleY:86.69,
+    infoBaselines:[110.94,127.24,143.54],
+    tableTop:164.2, hdrH:16.4, tableBottom:780, totalH:14.8,
+    rowMin:46, lineH:11.3, font:9, lineW:0.7,
+    fill:true, maxRows:14, fillRows:false,
+    sigOffset:11.94, sigX:[8.9,222.8,431.6], pageNo:'bottom',
+    cssSize:'A4'
+  }
+};
+/* 明细表列定义：k=数据键，d=默认列名。列名/显示/宽度可在「列设置」里改，打印同步生效 */
+const COLS = [
+  {k:'seq',      d:'序号'},
+  {k:'code',     d:'存货编号'},
+  {k:'name',     d:'存货名称'},
+  {k:'spec',     d:'规格型号'},
+  {k:'proj',     d:'项目编号'},
+  {k:'unit',     d:'单位'},
+  {k:'qty',      d:'数量'},
+  {k:'pin',      d:'品号'},
+  {k:'contract', d:'合同编号'}
+];
+const HEADS = COLS.map(c=>c.d);
+const KEYS  = COLS.map(c=>c.k);
+const ITEM_KEYS = ['code','name','spec','proj','unit','qty','pin','contract'];
+/* 默认宽度权重：取三联纸版式实测列宽，单位千分之一 */
+function defaultCols(){
+  return COLS.map((c,i)=>({
+    k:c.k, name:c.d, on:true,
+    w: Math.round(PROFILES.tri.colRatios[i]*1000)
+  }));
+}
+function loadCols(set){
+  const def = defaultCols();
+  const saved = set && Array.isArray(set.cols)? set.cols : null;
+  if(!saved || !saved.length) return def;
+  const out = [];
+  saved.forEach(s=>{
+    if(!s || typeof s.k!=='string' || !s.k) return;
+    if(out.some(c=>c.k===s.k)) return;
+    const std = def.filter(d=>d.k===s.k)[0];
+    out.push({
+      k: s.k,
+      name: String(s.name||'').trim() || (std? std.d : '列'),
+      on: s.on!==false,
+      w: (+s.w>0? +s.w : (std? std.w : 60))
+    });
+  });
+  return out.length? out : def;
+}
+function nextColKey(list){
+  const used={}; list.forEach(c=>used[c.k]=1);
+  let n=1; while(used['x'+n]) n++;
+  return 'x'+n;
+}
+const FIELDS = ['company','maker','date','no','agent','shipper','dept','warehouse','customer','summary'];
+const FIELD_LABEL = {company:'公司名称',maker:'制单人',date:'录单日期',no:'单据编号',agent:'经办人',shipper:'送货人',dept:'部门',warehouse:'发货仓库',customer:'客户',summary:'摘要'};
+
+/* ============ 工具 ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { v = parseFloat(String(v).replace(/,/g,'')); return isNaN(v)?0:v; };
+const fmtQty = n => (Math.round(n*1000)/1000).toString();
+const today = () => { const d=new Date(); const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); };
+
+const mc = document.createElement('canvas').getContext('2d');
+/* canvas 的宽度是 px（96dpi），版面用 pt，1pt = 1.333px，故乘 0.75 换算 */
+function measure(t, fs, bold){ mc.font = (bold?'bold ':'')+fs+'pt "SimSun","宋体",serif'; return mc.measureText(t||'').width * 0.75; }
+/* 宋体没有真正的粗体字形：浏览器只在屏幕上“假装”加粗，一旦另存 PDF 或送针式打印机，
+   就退回细体。所以这里按字号描一圈真实的边（约 2% 字高，和浏览器伪粗体相当），
+   屏幕上和纸面上才是同样的粗。 */
+function strokeOf(fs){
+  const w = Math.min(0.60, Math.max(0.12, (fs||9)*0.02));
+  return `-webkit-text-stroke:${w.toFixed(2)}pt #000;`;
+}
+
+function wrapText(text, maxW, fs){
+  text = String(text==null?'':text).replace(/\r\n|\r/g,'\n');
+  const out=[];
+  text.split('\n').forEach(raw=>{
+    const s = raw.replace(/[ \t]{2,}/g,' ').trim();
+    if(!s){ out.push(''); return; }
+    const atoms = s.match(/[A-Za-z0-9\-/_.()]+\s*|\s+|[\s\S]/g) || [];
+    let line='';
+    for(const atom of atoms){
+      const cand = line+atom;
+      if(measure(cand,fs) <= maxW){ line=cand; continue; }
+      if(!line.trim()){
+        for(const ch of atom){
+          if(measure(line+ch,fs) <= maxW || !line) line+=ch;
+          else { out.push(line.replace(/\s+$/,'')); line=ch; }
+        }
+        continue;
+      }
+      out.push(line.replace(/\s+$/,''));
+      line = atom.replace(/^[\s]+/,'');
+    }
+    out.push(line.replace(/\s+$/,''));
+  });
+  return out.length?out:[''];
+}
+
+/* ============ 状态 ============ */
+const LS = {
+  get(k, d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+};
+
+let model = {
+  company:'苏州安驰电子科技有限公司', maker:'', date:today(), no:'', agent:'', dept:'',
+  shipper:'', warehouse:'', customer:'', summary:'',
+  items:[blankItem()]
+};
+function blankItem(){ return {code:'',name:'',spec:'',proj:'',unit:'',qty:'',pin:'',contract:''}; }
+
+let UI = { layout:'tri', ofs:{tri:0, a4:0}, zoom:0, recs:[], cols:defaultCols(), colsCustom:false, opts:{}, optsHidden:{},
+           fillTri:false, fs:{title:100, info:100, item:100} };
+const REC_KEY='shd_records_v1', SET_KEY='shd_settings_v1', LIB_KEY='shd_lib_v1', DRAFT_KEY='shd_draft_v1';
+
+/* ============ 初始化 ============ */
+function init(){
+  const set = LS.get(SET_KEY, {});
+  UI.fillTri = !!set.fillTri;
+  if(set.layout && PROFILES[set.layout]) UI.layout = set.layout;
+  if(set.ofs || set.offset!==undefined) UI.ofs = loadOffsets(set);
+  UI.cols = loadCols(set);
+  UI.colsCustom = !!set.colsCustom;
+  UI.opts = loadOpts(set);
+  UI.optsHidden = loadOptsHidden(set);
+  UI.fs = loadFs(set);
+  UI.recs = LS.get(REC_KEY, []);
+  model.company = set.company || model.company;
+  model.maker = set.maker || '';
+  model.agent = set.agent || '';
+  model.shipper = set.shipper || '';
+  model.warehouse = set.warehouse || '';
+  model.customer = set.customer || '';
+  model.dtype = set.dtype || '送货单';
+
+  const draft = LS.get(DRAFT_KEY, null);
+  if(draft && draft.items && draft.items.length){ model = Object.assign(model, draft); }
+
+  $('#layout').value = UI.layout;
+  $('#offset').value = curOfs();
+
+  bind();
+  renderForm();
+  renderItems();
+  buildOptLists();
+  renderForm();
+  renderFs();
+  const cbFill = $('#fillTri'); if(cbFill) cbFill.checked = !!UI.fillTri;
+  renderPrint();
+  updateTag();
+}
+
+function bind(){
+  const map = {company:'#f_company',maker:'#f_maker',date:'#f_date',no:'#f_no',agent:'#f_agent',
+               shipper:'#f_shipper',dept:'#f_dept',warehouse:'#f_warehouse',customer:'#f_customer',summary:'#f_summary'};
+  Object.keys(map).forEach(k=>{
+    const el=$(map[k]);
+    el.addEventListener('input', ()=>{ model[k]=el.value; if(k==='no'||k==='customer') updateTag(); if(OPT_KEYS.indexOf(k)>=0) buildOptLists(); refresh(); });
+    el.addEventListener('change', ()=>{ model[k]=el.value; if(k==='no'||k==='customer') updateTag(); if(OPT_KEYS.indexOf(k)>=0) buildOptLists(); refresh(); });
+  });
+  document.querySelectorAll('.optAdd').forEach(b=>{ b.onclick = ()=>addOptionFromField(b.dataset.key); });
+  document.querySelectorAll('.optMenu').forEach(b=>{
+    b.onclick = (e)=>{ e.stopPropagation(); toggleOptPanel(b.dataset.key, document.getElementById(OPT_FIELD[b.dataset.key])); };
+  });
+  OPT_KEYS.forEach(k=>{
+    const el = document.getElementById(OPT_FIELD[k]);
+    el.addEventListener('focus', ()=>{ if(optNoFocusOpen) return; openOptPanel(k, el); });
+  });
+  document.addEventListener('mousedown', e=>{
+    if(!optPanelEl || optPanelEl.style.display !== 'block') return;
+    if(optPanelEl.contains(e.target) || e.target.closest('.optMenu') || e.target.closest('.optAdd')) return;
+    closeOptPanel();
+  });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOptPanel(); });
+  $('#btnOpts').onclick = showOpts;
+  document.querySelectorAll('.railBtn').forEach(b=>{ b.onclick = ()=> showPanel(b.dataset.panel); });
+  document.querySelectorAll('.dtypeBtn').forEach(b=>{ b.onclick = ()=>setDtype(b.dataset.dtype); });
+  $('#f_date').addEventListener('change', ()=>{ if(/^XS-/.test(String(model.no||'').trim())) { model.no = nextNo(model.date); $('#f_no').value=model.no; updateTag(); } refresh(); });
+
+  $('#layout').addEventListener('change', e=>{
+    UI.layout=e.target.value;
+    $('#offset').value = curOfs();          // 每种版式各有各的微调值
+    saveSettings(); renderPrint();
+  });
+  $('#offset').addEventListener('input', e=>{
+    UI.ofs[UI.layout] = clampOfs(+e.target.value);
+    saveSettings(); renderPrint();
+  });
+
+  $('#btnNew').onclick = newDoc;
+  $('#btnSave').onclick = saveDoc;
+  $('#btnOpen').onclick = openRecords;
+  $('#btnClone').onclick = cloneDoc;
+  $('#btnPrint').onclick = doPrint;
+  $('#btnXls').onclick = exportExcel;
+  $('#btnAdd').onclick = ()=>addRow();
+  $('#btnIns').onclick = insertRow;
+  $('#btnDel').onclick = delRows;
+  $('#btnUp').onclick = ()=>moveRows(-1);
+  $('#btnDown').onclick = ()=>moveRows(1);
+  $('#btnCols').onclick = ()=>showCols();
+  $('#btnTpl').onclick = downloadTemplate;
+  $('#btnImport').onclick = ()=>$('#fImport').click();
+  $('#fImport').addEventListener('change', e=>{
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(f) importFile(f);
+  });
+  $('#btnHelp').onclick = showHelp;
+  $('#undoBtn').onclick = runUndo;
+  $('#btnBackup').onclick = backup;
+  $('#btnRestore').onclick = restore;
+  $('#zoomIn').onclick = ()=>{ UI.zoom = Math.min(1.6, Math.round(((UI.zoom||fitZoom())+0.1)*100)/100); applyZoom(); };
+  $('#zoomOut').onclick = ()=>{ UI.zoom = Math.max(0.25, Math.round(((UI.zoom||fitZoom())-0.1)*100)/100); applyZoom(); };
+  $('#zoomLabel').onclick = ()=>{ UI.zoom = 0; applyZoom(); };
+
+  document.querySelectorAll('.fsBtn').forEach(b=>{
+    b.onclick = ()=> setFontSize(b.dataset.part, (+(UI.fs[b.dataset.part]||100)) + (+b.dataset.d)*FS_STEP);
+  });
+  $('#fillTri').onchange = ()=>{ UI.fillTri = $('#fillTri').checked; saveSettings(); renderPrint(); toast(UI.fillTri?'表格已铺满到纸底':'表格跟着明细收'); };
+  $('#fsReset').onclick = ()=>{
+    UI.fs = {title:100, info:100, item:100};
+    renderFs(); renderPrint(); saveSettings(); toast('三块字号都已复位到 100%');
+  };
+
+  document.addEventListener('paste', onPaste);
+  document.addEventListener('keydown', e=>{
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveDoc(); }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='p'){ e.preventDefault(); doPrint(); }
+  });
+  window.addEventListener('resize', ()=>{ if(!UI.zoom) applyZoom(); });
+}
+
+function saveSettings(){
+  LS.set(SET_KEY, Object.assign(LS.get(SET_KEY,{}), {
+    layout:UI.layout, ofs:UI.ofs, company:model.company, maker:model.maker,
+    agent:model.agent, shipper:model.shipper, warehouse:model.warehouse,
+    cols:UI.cols, colsCustom:UI.colsCustom, opts:UI.opts, optsHidden:UI.optsHidden, fillTri:UI.fillTri, fs:UI.fs
+  }));
+}
+/* 改某一块的字号：立刻重排预览并记住 */
+function setFontSize(part, v){
+  if(!FS_LABEL[part]) return;
+  UI.fs[part] = clampFs(v);
+  renderFs(); renderPrint(); saveSettings();
+}
+function renderFs(){
+  ['title','info','item'].forEach(p=>{
+    const el = document.getElementById('fs'+p.charAt(0).toUpperCase()+p.slice(1));
+    if(!el) return;
+    const v = clampFs(UI.fs[p]);
+    el.textContent = v+'%';
+    el.classList.toggle('mid', v!==100);
+  });
+}
+
+/* ============ 表单 ============ */
+function renderForm(){
+  $('#f_company').value = model.company||'';
+  $('#f_no').value = model.no||'';
+  $('#f_date').value = model.date||'';
+  $('#f_maker').value = model.maker||'';
+  $('#f_agent').value = model.agent||'';
+  $('#f_shipper').value = model.shipper||'';
+  $('#f_dept').value = model.dept||'';
+  $('#f_warehouse').value = model.warehouse||'';
+  $('#f_customer').value = model.customer||'';
+  $('#f_summary').value = model.summary||'';
+  syncDtypeUI();
+  updateTag();
+}
+/* 单据类型：送货单 / 样品单 / 提前送货单 —— 只改单据抬头那一行字 */
+function syncDtypeUI(){
+  const cur = model.dtype || '送货单';
+  document.querySelectorAll('.dtypeBtn').forEach(b=>{
+    const on = b.dataset.dtype === cur;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function setDtype(t){
+  if(!t) return;
+  if(model.dtype === t){ syncDtypeUI(); return; }
+  model.dtype = t;
+  syncDtypeUI();
+  renderPrint();
+  LS.set(DRAFT_KEY, model);
+  toast('已切换为「'+t+'」，单据抬头和打印预览同步改好');
+}
+function updateTag(){
+  const tg = $('#tagNo');
+  const cu = String(model.customer||'').trim();
+  const no = String(model.no||'').trim();
+  tg.textContent = (cu || '（未填客户）') + '　' + (no || '未编号');
+  tg.title = cu ? ('客户：' + cu + '　单据编号：' + (no||'未编号')) : ('单据编号：' + (no||'未编号'));
+  tg.classList.toggle('hasCust', !!cu);
+  const tl = $('#tagLayout');
+  if(tl) tl.textContent = UI.layout==='a4' ? 'A4 纸' : '三联纸 214.7×139.8';
+}
+
+/* ============ 左侧导航：录单 / 版式字号 / 选项列宽 / 记录备份 ============ */
+const PANELS = {doc:'panelDoc', print:'panelPrint', opts:'panelOpts', store:'panelStore'};
+function showPanel(name){
+  if(!PANELS[name]) name = 'doc';
+  document.querySelectorAll('.railBtn').forEach(b=>{ b.classList.toggle('on', b.dataset.panel===name); });
+  Object.keys(PANELS).forEach(k=>{
+    const p = document.getElementById(PANELS[k]);
+    if(p) p.classList.toggle('on', k===name);
+  });
+  if(name==='print'){ $('#layout').value = UI.layout; $('#offset').value = curOfs(); }
+  if(name==='store') updateRecCount();
+}
+function updateRecCount(){
+  const el = $('#recCount');
+  if(el) el.textContent = '已存 ' + ((UI.recs||[]).length) + ' 张';
+}
+
+/* ============ 单据信息：可自己添加、保存在本机的下拉选项 ============ */
+const OPT_KEYS = ['maker','agent','shipper','dept','warehouse','customer'];
+const OPT_LABEL = {maker:'制单人',agent:'经办人',shipper:'送货人',dept:'部门',warehouse:'发货仓库',customer:'客户'};
+const OPT_DL = {maker:'dlMaker',agent:'dlAgent',shipper:'dlShipper',dept:'dlDept',warehouse:'dlWarehouse',customer:'dlCustomer'};
+const OPT_FIELD = {maker:'f_maker',agent:'f_agent',shipper:'f_shipper',dept:'f_dept',warehouse:'f_warehouse',customer:'f_customer'};
+
+function loadOpts(set){
+  const out={}, saved=(set&&set.opts)||{};
+  OPT_KEYS.forEach(k=>{
+    let arr = Array.isArray(saved[k]) ? saved[k]
+            : (k==='customer' && Array.isArray(set&&set.customers) ? set.customers : []);
+    out[k] = arr.map(v=>String(v==null?'':v).trim()).filter(Boolean)
+              .filter((v,i,a)=>a.indexOf(v)===i).slice(0,80);
+  });
+  return out;
+}
+function loadOptsHidden(set){
+  const out={}, saved=(set&&set.optsHidden)||{};
+  OPT_KEYS.forEach(k=>{ out[k] = Array.isArray(saved[k]) ? saved[k].map(v=>String(v)) : []; });
+  return out;
+}
+/* 套打上下微调：三联纸 / A4 各存一个值（原来共用一个，换版式就得重调） */
+function clampOfs(v){
+  v = +v || 0;
+  return Math.max(-15, Math.min(15, Math.round(v*10)/10));
+}
+function loadOffsets(set){
+  const out = {tri:0, a4:0};
+  const src = (set && set.ofs) || null;
+  if(src){ ['tri','a4'].forEach(k=>{ out[k] = clampOfs(src[k]); }); }
+  else if(set && set.offset!==undefined){ out.tri = out.a4 = clampOfs(set.offset); }  // 老设置兼容
+  return out;
+}
+function curOfs(){ return clampOfs((UI.ofs || {})[UI.layout]); }
+
+/* 三块字号：标头 / 单据信息 / 货物明细，各自一个百分比，存本机设置 */
+const FS_MIN=60, FS_MAX=200, FS_STEP=5;
+const FS_LABEL = {title:'标头', info:'单据信息', item:'货物明细'};
+function clampFs(v){
+  v = Math.round((+v||100)/FS_STEP)*FS_STEP;
+  return Math.max(FS_MIN, Math.min(FS_MAX, v));
+}
+function loadFs(set){
+  const saved = (set && set.fs) || {};
+  return { title:clampFs(saved.title), info:clampFs(saved.info), item:clampFs(saved.item) };
+}
+/* 取三个倍数（0.6 ~ 2.0），打印/预览全部按它缩放 */
+function fontScale(){
+  const f = UI.fs || {};
+  return { title:clampFs(f.title)/100, info:clampFs(f.info)/100, item:clampFs(f.item)/100 };
+}
+/* 下拉候选 = 手动存的选项 + 历史单据里出现过的值 + 当前填的值，去掉已删除的 */
+function optPool(k){
+  const pool = new Set((UI.opts && UI.opts[k]) || []);
+  (UI.recs || []).forEach(r=>{
+    const v = String((r.data && r.data[k]) || '').trim();
+    if(v) pool.add(v);
+  });
+  const now = String(model[k] || '').trim();
+  if(now) pool.add(now);
+  const hide = (UI.optsHidden && UI.optsHidden[k]) || [];
+  return [...pool].filter(v=>hide.indexOf(v) < 0).sort((a,b)=>a.localeCompare(b,'zh-Hans-CN'));
+}
+function buildOptLists(){
+  OPT_KEYS.forEach(k=>{
+    const dl = document.getElementById(OPT_DL[k]);
+    if(!dl) return;
+    dl.innerHTML = optPool(k).map(v=>'<option value="'+esc(v)+'"></option>').join('');
+  });
+}
+function rememberOption(k, v, quiet){
+  v = String(v==null?'':v).trim();
+  if(!v) return false;
+  if(!UI.opts[k]) UI.opts[k] = [];
+  if(!UI.optsHidden[k]) UI.optsHidden[k] = [];
+  const hx = UI.optsHidden[k].indexOf(v);
+  if(hx >= 0) UI.optsHidden[k].splice(hx,1);      // 用户又主动加回来的，取消删除状态
+  if(UI.opts[k].indexOf(v) >= 0){
+    if(!quiet) toast('「'+v+'」已经在选项里了');
+    buildOptLists();
+    return false;
+  }
+  UI.opts[k].push(v);
+  saveSettings(); buildOptLists();
+  if(!quiet) toast('已添加选项：' + v + '（存在本机，下次点下拉就能选）');
+  return true;
+}
+function addOptionFromField(k){
+  const el = document.getElementById(OPT_FIELD[k]);
+  if(!el) return;
+  if(!String(el.value||'').trim()){ toast('先在「'+OPT_LABEL[k]+'」里填上内容，再点＋'); el.focus(); return; }
+  rememberOption(k, el.value);
+}
+
+/* ---- 候选面板：不管这一格现在填着什么，点开永远列出全部候选 ---- */
+/* （原生 datalist 会按当前文字过滤，选了「朱」就看不到「齐」，所以改成自绘） */
+let optPanelEl = null, optPanelKey = null, optNoFocusOpen = false;
+function ensureOptPanel(){
+  if(optPanelEl) return optPanelEl;
+  const d = document.createElement('div');
+  d.id = 'optPanel'; d.className = 'optPanel';
+  document.body.appendChild(d);
+  optPanelEl = d;
+  return d;
+}
+function setFieldValue(k, v){
+  const el = document.getElementById(OPT_FIELD[k]);
+  if(!el) return;
+  el.value = v;
+  model[k] = v;
+  if(k === 'no' || k === 'customer') updateTag();
+  buildOptLists(); refresh();
+  optNoFocusOpen = true;
+  try{ el.focus(); }catch(e){}
+  setTimeout(function(){ optNoFocusOpen = false; }, 0);
+}
+function closeOptPanel(){
+  if(optPanelEl) optPanelEl.style.display = 'none';
+  optPanelKey = null;
+}
+function openOptPanel(k, anchorEl){
+  const panel = ensureOptPanel();
+  const cur = String(model[k]||'');
+  const pool = optPool(k);
+  panel.innerHTML =
+      '<div class="optPanelHead">'+OPT_LABEL[k]+' 全部候选<span class="optPanelX" data-close="1" title="关闭">×</span></div>'
+    + (pool.length
+        ? pool.map(v=>'<div class="optItem'+(v===cur?' on':'')+'" data-val="'+esc(v)+'"><i>'+(v===cur?'✓':'')+'</i>'+esc(v)+'</div>').join('')
+        : '<div class="optEmpty">还没有候选。填好内容点「＋」就能存成候选。</div>')
+    + '<div class="optPanelFoot">'
+    +   '<button class="btn sm" data-add="1">＋ 把当前内容存成候选</button>'
+    +   '<button class="btn sm" data-clear="1">清空这一格</button>'
+    + '</div>';
+  panel.style.display = 'block';
+  const r = (anchorEl || document.getElementById(OPT_FIELD[k])).getBoundingClientRect();
+  const pw = panel.offsetWidth, ph = panel.offsetHeight;
+  let left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 10));
+  let top = r.bottom + 3;
+  if(top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 3);
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+  optPanelKey = k;
+  panel.querySelectorAll('.optItem').forEach(it=>{
+    it.onclick = ()=>{ setFieldValue(k, it.dataset.val); closeOptPanel(); };
+  });
+  panel.querySelector('[data-close]').onclick = closeOptPanel;
+  panel.querySelector('[data-add]').onclick = ()=>{ rememberOption(k, model[k]); openOptPanel(k, anchorEl); };
+  panel.querySelector('[data-clear]').onclick = ()=>{ setFieldValue(k, ''); closeOptPanel(); };
+}
+function toggleOptPanel(k, anchorEl){
+  openOptPanel(k, anchorEl);
+}
+function showOpts(){
+  const rows = OPT_KEYS.map(k=>{
+    const pool = optPool(k);
+    const chips = pool.length
+      ? pool.map(v=>'<span class="chip">'+esc(v)+'<i class="chipX" data-k="'+k+'" data-v="'+esc(v)+'" title="删除这个选项">×</i></span>').join('')
+      : '<span style="color:#9aa3af;font-size:12px">（还没有选项，回表单里点 ＋ 添加）</span>';
+    return '<div class="optLine"><div class="optName">'+OPT_LABEL[k]+'</div><div class="optChips">'+chips+'</div></div>';
+  }).join('');
+  openModal('选项管理', '<div class="helpText">下面是各字段的下拉候选。点选项后面的 × 可以删掉它'
+    + '（只影响下拉候选，已保存的单据内容不变）。要加新选项，回表单里把那格填好，点右边的 ＋。</div>'
+    + '<div class="optBox">'+rows+'</div>', [{label:'关闭', primary:true, act:closeModal}]);
+  document.querySelectorAll('#modalBox .chipX').forEach(ch=>{
+    ch.onclick = ()=>{
+      const k = ch.dataset.k, v = ch.dataset.v;
+      UI.opts[k] = ((UI.opts && UI.opts[k]) || []).filter(x=>x !== v);
+      if(!UI.optsHidden[k]) UI.optsHidden[k] = [];
+      if(UI.optsHidden[k].indexOf(v) < 0) UI.optsHidden[k].push(v);
+      saveSettings(); buildOptLists(); showOpts();
+    };
+  });
+}
+
+/* ============ 明细编辑 ============ */
+function visibleCols(){ return UI.cols.filter(c=>c.on); }
+
+function renderItems(){
+  const vis = visibleCols();
+  // 编辑区把「规格型号」适当加宽，方便看清长规格；打印仍按列设置的比例
+  const sw = c => c.k==='spec'? c.w*1.8 : c.w;
+  const sumW = vis.reduce((s,c)=>s+sw(c),0) || 1;
+  const head = $('#itemHead');
+  head.innerHTML = '<th style="width:22px"></th>' + vis.map((c,i)=>
+    `<th style="width:${(sw(c)/sumW*100).toFixed(2)}%" title="双击可改列名">${esc(c.name)}${i<vis.length-1?'<span class="colGrip" data-grip="'+i+'" title="左右拖动调列宽（只影响相邻两列）"></span>':''}</th>`).join('');
+  head.querySelectorAll('th').forEach((th,i)=>{
+    if(i===0) return;
+    th.addEventListener('dblclick', ()=>showCols());
+  });
+  head.querySelectorAll('.colGrip').forEach(g=>{
+    g.addEventListener('mousedown', e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      startColResize(+g.dataset.grip, e);
+    });
+  });
+
+  const tb = $('#itemBody');
+  tb.innerHTML = model.items.map((it,i)=>`
+    <tr data-i="${i}">
+      <td class="rowSel"><input type="checkbox" class="rowCheck"></td>
+      ${vis.map(c=> c.k==='seq'
+        ? `<td class="num">${i+1}</td>`
+        : `<td><input class="cellInput${c.k==='spec'?' specInput':''}" data-i="${i}" data-k="${c.k}"
+             value="${esc(it[c.k])}" title="${esc(it[c.k])}" ${c.k==='qty'?'style="text-align:right"':''}></td>`).join('')}
+    </tr>`).join('');
+
+  tb.querySelectorAll('.cellInput').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i=+e.target.dataset.i, k=e.target.dataset.k;
+      model.items[i][k] = e.target.value;
+      e.target.title = e.target.value;
+      if(k==='qty') updateTotal();
+      refresh();
+    });
+    inp.addEventListener('blur', e=>{
+      const i=+e.target.dataset.i, k=e.target.dataset.k;
+      if(k==='code') autoFill(i, e.target.value.trim());
+    });
+    inp.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); focusNext(e.target); }
+    });
+  });
+  updateTotal();
+}
+/* ============ 拖动表头边界调列宽 ============ */
+function startColResize(ci, ev){
+  const ths = [...document.querySelectorAll('#itemHead th')].slice(1);
+  if(!ths.length || !ths[ci] || !ths[ci+1]) return;
+  const widths = ths.map(t=>t.getBoundingClientRect().width);
+  const aw = widths[ci];        // 被拖的列
+  const bw = widths[ci+1];      // 紧挨着的右边一列
+  const minW = 30;
+  const startX = ev.clientX;
+  document.body.classList.add('colResizing');
+  // 先把所有列宽度钉成当前像素值，保证拖动过程中其他列纹丝不动
+  ths.forEach((t,i)=>{ t.style.width = widths[i]+'px'; });
+  const move = e=>{
+    // 只调整这两个列：本列变宽 = 右邻列等比变窄，反之亦然
+    let dx = e.clientX - startX;
+    dx = Math.max(minW - aw, Math.min(bw - minW, dx));
+    ths[ci].style.width = (aw + dx) + 'px';
+    ths[ci+1].style.width = (bw - dx) + 'px';
+  };
+  const up = ()=>{
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.body.classList.remove('colResizing');
+    commitColWidths();
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+function commitColWidths(){
+  const ths = [...document.querySelectorAll('#itemHead th')].slice(1);
+  const vis = visibleCols();
+  if(!ths.length) return;
+  const px = ths.map(t=>t.getBoundingClientRect().width);
+  // 编辑区规格列有 1.8 倍显示加宽，换算回权重前先还原
+  const base = px.map((v,i)=> vis[i] && vis[i].k==='spec' ? v/1.8 : v);
+  const sum = base.reduce((s,v)=>s+v,0) || 1;
+  vis.forEach((c,i)=>{ c.w = Math.max(5, Math.round(base[i]/sum*1000)); });
+  UI.cols = UI.cols.map(c=>{
+    if(!c.on) return c;
+    const nv = vis.filter(v=>v.k===c.k)[0];
+    return nv ? Object.assign({}, c, {w:nv.w}) : c;
+  });
+  UI.colsCustom = true;
+  renderItems(); refresh(); saveSettings();
+  toast('列宽已更新，打印预览同步调整');
+}
+function focusNext(el){
+  const i=+el.dataset.i, k=el.dataset.k;
+  const keys = visibleCols().filter(c=>c.k!=='seq').map(c=>c.k);
+  const ki=keys.indexOf(k);
+  let target;
+  if(ki<keys.length-1) target=$(`.cellInput[data-i="${i}"][data-k="${keys[ki+1]}"]`);
+  else if(model.items[i+1]) target=$(`.cellInput[data-i="${i+1}"][data-k="${keys[0]}"]`);
+  else { addRow(); target=$(`.cellInput[data-i="${model.items.length-1}"][data-k="${keys[0]}"]`); }
+  if(target){ target.focus(); target.select&&target.select(); }
+}
+
+function autoFill(i, code){
+  if(!code) return;
+  const lib = LS.get(LIB_KEY, {});
+  const info = lib[code];
+  if(!info) return;
+  const it = model.items[i];
+  ['name','spec','unit','pin'].forEach(k=>{ if(!it[k] && info[k]) it[k]=info[k]; });
+  const row = document.querySelector(`tr[data-i="${i}"]`);
+  if(row) row.querySelectorAll('.cellInput').forEach(inp=>{ inp.value = it[inp.dataset.k]||''; });
+  refresh();
+  toast('已从商品库带出：'+(info.name||code));
+}
+
+function firstKey(){ const v=visibleCols().filter(c=>c.k!=='seq'); return v.length? v[0].k : 'code'; }
+
+function addRow(){
+  model.items.push(blankItem());
+  renderItems(); refresh();
+  const last = model.items.length-1;
+  setTimeout(()=>{ const el=$(`.cellInput[data-i="${last}"][data-k="${firstKey()}"]`); if(el) el.focus(); }, 30);
+}
+function insertRow(){
+  const sel=[...document.querySelectorAll('.rowCheck:checked')].map(x=>+x.closest('tr').dataset.i);
+  const at = sel.length? sel[0]+1 : model.items.length;
+  model.items.splice(at,0,blankItem());
+  renderItems(); refresh();
+  setTimeout(()=>{ const el=$(`.cellInput[data-i="${at}"][data-k="${firstKey()}"]`); if(el) el.focus(); }, 30);
+  toast('已在选中行下方插入一行');
+}
+function delRows(){
+  const sel=[...document.querySelectorAll('.rowCheck:checked')].map(x=>+x.closest('tr').dataset.i);
+  if(!sel.length){ toast('请先勾选要删除的行'); return; }
+  const snap = JSON.parse(JSON.stringify(model.items));
+  const n = sel.length;
+  model.items = model.items.filter((_,i)=>!sel.includes(i));
+  if(!model.items.length) model.items=[blankItem()];
+  renderItems(); refresh();
+  offerUndo(`已删除 ${n} 行明细`, ()=>{
+    model.items = JSON.parse(JSON.stringify(snap));
+    renderItems(); refresh();
+    toast('已恢复 '+n+' 行明细');
+  });
+}
+function moveRows(d){
+  const sel=[...document.querySelectorAll('.rowCheck:checked')].map(x=>+x.closest('tr').dataset.i);
+  if(sel.length!==1){ toast('请只勾选一行再上移/下移'); return; }
+  const i=sel[0], j=i+d;
+  if(j<0||j>=model.items.length) return;
+  [model.items[i],model.items[j]]=[model.items[j],model.items[i]];
+  renderItems(); refresh();
+  setTimeout(()=>{ const c=document.querySelectorAll('.rowCheck')[j]; if(c) c.checked=true; },20);
+}
+function updateTotal(){
+  const t = model.items.reduce((s,it)=>s+num(it.qty),0);
+  $('#totalQty').textContent = fmtQty(t);
+}
+function totalQty(items){
+  const t=(items||[]).reduce((s,it)=>s+num(it.qty),0);
+  return fmtQty(t);
+}
+
+/* ============ 明细模板：下载模板 / 一键导入 ============ */
+/* 模板是真正的 .xlsx（手写 zip，零依赖），所有列预先设成“文本”格式，
+   这样 0030535 这类带前导零的存货编号、8-20 这类像日期的规格都不会被 Excel 改掉 */
+const IMP_W = {code:15, name:17, spec:34, proj:11, unit:7, qty:8, pin:13, contract:22};
+
+function colLetter(i){ let s='', n=i+1; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
+function xmlEscape(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function crc32(u8){
+  if(!crc32.tab){
+    const t = crc32.tab = new Uint32Array(256);
+    for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = (c&1)? (0xEDB88320 ^ (c>>>1)) : (c>>>1); t[n]=c>>>0; }
+  }
+  let crc = 0xFFFFFFFF;
+  for(let i=0;i<u8.length;i++) crc = crc32.tab[(crc ^ u8[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* 生成 zip（存储模式，不压缩）：xlsx 就是一堆 xml 打进 zip */
+function makeZip(files){
+  const enc = new TextEncoder();
+  const d = new Date();
+  const dosTime = ((d.getHours()&31)<<11) | ((d.getMinutes()&63)<<5) | ((d.getSeconds()/2)&31);
+  const dosDate = (((d.getFullYear()-1980)&127)<<9) | (((d.getMonth()+1)&15)<<5) | (d.getDate()&31);
+  const parts = [], centrals = [];
+  let off = 0;
+  files.forEach(f=>{
+    const name = enc.encode(f.name);
+    const data = f.data instanceof Uint8Array ? f.data : enc.encode(String(f.data));
+    const crc = crc32(data);
+    const lh = new Uint8Array(30 + name.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true);
+    lv.setUint16(8, 0, true); lv.setUint16(10, dosTime, true); lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true); lv.setUint32(18, data.length, true); lv.setUint32(22, data.length, true);
+    lv.setUint16(26, name.length, true); lv.setUint16(28, 0, true);
+    lh.set(name, 30);
+    parts.push(lh, data);
+    const ch = new Uint8Array(46 + name.length);
+    const cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true); cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 0, true); cv.setUint16(12, dosTime, true); cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true);
+    cv.setUint16(28, name.length, true);
+    cv.setUint32(42, off, true);
+    ch.set(name, 46);
+    centrals.push(ch);
+    off += lh.length + data.length;
+  });
+  const cdSize = centrals.reduce((s,c)=>s+c.length, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, off, true);
+  return new Blob([...parts, ...centrals, eocd], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+function templateSheetXml(cols, rows){
+  const n = cols.length;
+  const colsXml = '<cols>' + cols.map((c,i)=>{
+    const w = IMP_W[c.k] || 13;
+    return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>';
+  }).join('') + '</cols>';
+  const headXml = '<row r="1" ht="22" customHeight="1">' + cols.map((c,i)=>
+    '<c r="'+colLetter(i)+'1" s="1" t="inlineStr"><is><t>'+xmlEscape(c.name)+'</t></is></c>').join('') + '</row>';
+  let blankXml = '';
+  for(let r=2; r<=rows; r++){
+    blankXml += '<row r="'+r+'">' + cols.map((c,i)=>'<c r="'+colLetter(i)+r+'" s="2"/>').join('') + '</row>';
+  }
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<dimension ref="A1:'+colLetter(n-1)+rows+'"/>'
+    + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+    + '<sheetFormatPr defaultRowHeight="16"/>'
+    + colsXml + '<sheetData>' + headXml + blankXml + '</sheetData></worksheet>';
+}
+
+function buildTemplateBlob(){
+  const cols = visibleCols().filter(c=>c.k!=='seq');
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    
+    + '<fonts count="2"><font><sz val="11"/><name val="宋体"/></font><font><b/><sz val="11"/><name val="宋体"/></font></fonts>'
+    + '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill></fills>'
+    + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="3">'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    + '<xf numFmtId="49" fontId="1" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+    + '</cellXfs>'
+    + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  const workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheets><sheet name="送货明细" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  return makeZip([
+    {name:'[Content_Types].xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      + '</Types>'},
+    {name:'_rels/.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      + '</Relationships>'},
+    {name:'xl/workbook.xml', data:workbook},
+    {name:'xl/_rels/workbook.xml.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      + '</Relationships>'},
+    {name:'xl/styles.xml', data:styles},
+    {name:'xl/worksheets/sheet1.xml', data:templateSheetXml(cols, 41)}
+  ]);
+}
+
+function downloadTemplate(){
+  const cols = visibleCols().filter(c=>c.k!=='seq');
+  const blob = buildTemplateBlob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = '送货单明细模板.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('模板已下载（' + cols.length + ' 列，已设文本格式）：填好后点「导入明细」即可，不用另存');
+}
+
+/* ---- 读 xlsx：解 zip + 解析 sheet ---- */
+async function unzipEntries(buf){
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  let eocd = -1;
+  const from = Math.max(0, u8.length - 22 - 65535);
+  for(let i = u8.length-22; i >= from; i--){ if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; } }
+  if(eocd < 0) throw new Error('这个文件不是 .xlsx（压缩包结构不对），请用「下载模板」得到的新文件填写');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const td = new TextDecoder('utf-8');
+  const out = {};
+  for(let k=0; k<count; k++){
+    if(dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const csize = dv.getUint32(p + 20, true);
+    const nameLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), cmtLen = dv.getUint16(p + 32, true);
+    const lho = dv.getUint32(p + 42, true);
+    const name = td.decode(u8.subarray(p + 46, p + 46 + nameLen));
+    p += 46 + nameLen + extraLen + cmtLen;
+    const lnameLen = dv.getUint16(lho + 26, true), lextra = dv.getUint16(lho + 28, true);
+    const raw = u8.subarray(lho + 30 + lnameLen + lextra, lho + 30 + lnameLen + lextra + csize);
+    if(method === 0){ out[name] = raw; }
+    else if(method === 8){
+      if(typeof DecompressionStream === 'undefined') throw new Error('当前浏览器不支持解压 xlsx，请把文件另存为 CSV 再导入');
+      const st = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      out[name] = new Uint8Array(await new Response(st).arrayBuffer());
+    }
+  }
+  return out;
+}
+
+function refToCol(ref){
+  const m = /^([A-Z]+)/.exec(String(ref||'').toUpperCase());
+  if(!m) return -1;
+  let n = 0;
+  for(const ch of m[1]) n = n*26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+function parseSheetXml(xml, shared){
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error('表格内容解析失败');
+  const rows = [];
+  const rowEls = doc.getElementsByTagName('row');
+  for(let ri=0; ri<rowEls.length; ri++){
+    const row = rowEls[ri];
+    const rNum = parseInt(row.getAttribute('r'), 10);
+    const idx = isNaN(rNum) ? ri : rNum - 1;
+    const cells = [];
+    const cs = row.getElementsByTagName('c');
+    for(let ci=0; ci<cs.length; ci++){
+      const c = cs[ci];
+      let col = refToCol(c.getAttribute('r'));
+      if(col < 0) col = ci;
+      const t = c.getAttribute('t');
+      let val = '';
+      if(t === 'inlineStr'){
+        const isEl = c.getElementsByTagName('is')[0];
+        if(isEl) val = [...isEl.getElementsByTagName('t')].map(x=>x.textContent).join('');
+      } else {
+        const vEl = c.getElementsByTagName('v')[0];
+        const raw = vEl ? vEl.textContent : '';
+        if(t === 's'){ val = shared[+raw] || ''; }
+        else if(t === 'b'){ val = raw === '1' ? 'TRUE' : 'FALSE'; }
+        else val = raw;
+      }
+      cells[col] = val;
+    }
+    rows[idx] = cells;
+  }
+  // 补空位
+  for(let i=0;i<rows.length;i++) if(!rows[i]) rows[i] = [];
+  return rows.filter(r=>r && r.some(v=>String(v==null?'':v).trim()!==''));
+}
+
+async function readXlsx(buf){
+  const files = await unzipEntries(buf);
+  let sheetName = Object.keys(files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort()[0];
+  if(!sheetName) throw new Error('文件里没找到工作表');
+  const shared = [];
+  if(files['xl/sharedStrings.xml']){
+    const sd = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(files['xl/sharedStrings.xml']), 'application/xml');
+    const sis = sd.getElementsByTagName('si');
+    for(let i=0;i<sis.length;i++) shared[i] = [...sis[i].getElementsByTagName('t')].map(x=>x.textContent).join('');
+  }
+  const rows = parseSheetXml(new TextDecoder('utf-8').decode(files[sheetName]), shared);
+  return rows;
+}
+
+/* ---- 读 csv / txt：自动认编码（UTF-8 / GBK）和分隔符 ---- */
+function decodeSmart(u8){
+  if(u8[0]===0xEF && u8[1]===0xBB && u8[2]===0xBF) return new TextDecoder('utf-8').decode(u8.subarray(3));
+  const s = new TextDecoder('utf-8', {fatal:false}).decode(u8);
+  if(s.indexOf('\uFFFD') >= 0){
+    try{ return new TextDecoder('gb18030').decode(u8); }catch(e){}
+  }
+  return s;
+}
+
+function detectDelim(text){
+  const line = (text.split(/\r?\n/).filter(l=>l.trim()!=='')[0] || '');
+  const counts = [[',', 0], [';\t'.replace(';',';'), 0]];
+  const comma = (line.match(/,/g)||[]).length;
+  const semi  = (line.match(/;/g)||[]).length;
+  const tab   = (line.match(/\t/g)||[]).length;
+  if(tab >= comma && tab >= semi && tab > 0) return '\t';
+  if(semi > comma) return ';';
+  return ',';
+}
+
+function parseDelimited(text, delim){
+  const out = [];
+  let row = [], cell = '', q = false;
+  const s = text.replace(/^\uFEFF/, '');
+  for(let i=0;i<s.length;i++){
+    const ch = s[i];
+    if(q){
+      if(ch === '"'){
+        if(s[i+1] === '"'){ cell += '"'; i++; }
+        else q = false;
+      } else cell += ch;
+    } else if(ch === '"'){ q = true; }
+    else if(ch === delim){ row.push(cell); cell=''; }
+    else if(ch === '\n'){ row.push(cell); cell=''; out.push(row); row = []; }
+    else if(ch === '\r'){ /* 忽略 */ }
+    else cell += ch;
+  }
+  if(cell !== '' || row.length){ row.push(cell); out.push(row); }
+  return out.filter(r=>r.some(v=>String(v||'').trim()!==''));
+}
+
+/* ---- 行 → 明细：按列名对位，对不上按从左到右顺序兜底 ---- */
+function rowsToItems(rows){
+  const cols = visibleCols().filter(c=>c.k!=='seq');
+  const head = rows.length ? rows[0].map(v=>String(v==null?'':v).trim()) : [];
+  const matches = cols.map(c=>{
+    let idx = head.findIndex(h=>h === c.name);
+    if(idx < 0){
+      const std = COLS.filter(x=>x.k===c.k)[0];
+      if(std) idx = head.findIndex(h=>h === std.d);
+    }
+    return idx;
+  });
+  const hit = matches.filter(i=>i>=0).length;
+  const byPos = hit === 0 && cols.length > 0 && head.length >= cols.length;
+  const map = byPos ? cols.map((c,i)=>i) : matches;
+  const body = (hit > 0 && head.length) ? rows.slice(1) : rows;
+  const items = [];
+  body.forEach(r=>{
+    const it = blankItem();
+    let any = false;
+    cols.forEach((c,i)=>{
+      if(map[i] < 0) return;
+      const v = String(r[map[i]] == null ? '' : r[map[i]]).trim();
+      if(v !== ''){ it[c.k] = v; any = true; }
+    });
+    if(any) items.push(it);
+  });
+  const found = cols.filter((c,i)=>map[i] >= 0).map(c=>c.name);
+  return {items, found, byPos, headMatched: hit};
+}
+
+/* ---- 导入流程 ---- */
+async function importFile(file){
+  const name = (file.name||'').toLowerCase();
+  try{
+    if(/\.xls$/.test(name)){
+      throw new Error('2003 版 .xls 读不了，请在 Excel 里「另存为」xlsx 或 CSV 再导入');
+    }
+    let rows;
+    if(/\.xlsx$/.test(name)){
+      rows = await readXlsx(await file.arrayBuffer());
+    } else {
+      const txt = decodeSmart(new Uint8Array(await file.arrayBuffer()));
+      rows = parseDelimited(txt, detectDelim(txt));
+    }
+    const res = rowsToItems(rows);
+    if(!res.items.length){ toast('文件里没读到有效明细行，检查是不是填在表头下面'); return; }
+    showImportConfirm(file.name, res, rows);
+  }catch(err){
+    openModal('导入失败', '<div class="helpText">' + esc(err.message || String(err)) + '<br><br>'
+      + '可以这样处理：点「下载模板」拿到新的 xlsx 文件，在里面填写后直接导入；'
+      + '或者把表格另存为 CSV（UTF-8）再导入。</div>', [{label:'知道了', primary:true, act:closeModal}]);
+  }
+}
+
+function showImportConfirm(fname, res, rows){
+  const preview = res.items.slice(0,4).map(it=>
+    '<tr>' + visibleCols().filter(c=>c.k!=='seq').map(c=>'<td style="padding:2px 6px;border-bottom:1px solid #eef0f3">'+esc(String(it[c.k]||'').slice(0,24))+'</td>').join('') + '</tr>'
+  ).join('');
+  const headCells = visibleCols().filter(c=>c.k!=='seq').map(c=>'<th style="padding:3px 6px;background:#f3f6fa">'+esc(c.name)+'</th>').join('');
+  openModal('导入明细 —— ' + fname, ''
+    + '<div class="helpText">读到 <b>' + res.items.length + '</b> 行明细'
+    + (res.byPos ? '（文件没有可识别的表头，按从左到右的顺序套到当前 ' + res.found.length + ' 列）'
+                 : '（按列名对上了 ' + res.found.length + ' 列）')
+    + '，空行已自动跳过。</div>'
+    + '<div style="margin:8px 0 4px;color:#6b7280;font-size:12px">前几行预览：</div>'
+    + '<div style="overflow:auto;max-height:220px"><table style="border-collapse:collapse;font-size:12px;white-space:nowrap">'
+    + '<thead><tr>' + headCells + '</tr></thead><tbody>' + preview + '</tbody></table></div>',
+    [
+      {label:'替换现有明细', primary:true, act:()=>{ closeModal(); applyImport(res.items, 'replace'); }},
+      {label:'追加到末尾', act:()=>{ closeModal(); applyImport(res.items, 'append'); }},
+      {label:'取消', act:closeModal}
+    ]);
+}
+
+function itemHasData(it){
+  return UI.cols.some(c=> c.k !== 'seq' && String(it[c.k]==null?'':it[c.k]).trim() !== '');
+}
+
+function applyImport(items, mode){
+  const n = items.length;
+  if(mode === 'append'){
+    const kept = model.items.filter(itemHasData);
+    model.items = kept.concat(items);
+  } else {
+    model.items = items.slice();
+  }
+  if(!model.items.length || itemHasData(model.items[model.items.length-1])) model.items.push(blankItem());
+  renderItems(); refresh();
+  LS.set(DRAFT_KEY, model);
+  toast((mode==='append' ? '已追加 ' : '已导入 ') + n + ' 行明细');
+}
+
+/* ============ 列设置（增删列 / 改名 / 隐藏 / 调宽） ============ */
+let colsDraft = null;
+
+function showCols(list){
+  if(!Array.isArray(list)) list = null;
+  colsDraft = (list || UI.cols).map(c=>Object.assign({}, c));
+  const n = colsDraft.length;
+  const rows = colsDraft.map((c,i)=>{
+    const std = COLS.filter(x=>x.k===c.k)[0];
+    return `<tr data-ri="${i}">
+      <td class="dragTd"><span class="dragHandle" data-handle="${i}" title="按住这里上下拖，松手放到想要的位置">⠿ 拖</span></td>
+      <td style="text-align:center;color:#6b7280;font-size:12px;padding:4px">${i+1}</td>
+      <td style="padding:4px"><input class="colName" data-ci="${i}" value="${esc(c.name)}" placeholder="${esc(std?std.d:'列名')}"
+           style="width:100%;border:1px solid var(--line);border-radius:4px;padding:5px 7px;font-size:12.5px;outline:none"></td>
+      <td style="text-align:center;padding:4px"><input type="checkbox" class="colOn" data-ci="${i}" ${c.on?'checked':''}></td>
+      <td style="padding:4px"><input class="colW" data-ci="${i}" type="number" min="5" max="600" step="5" value="${c.w}"
+           style="width:78px;border:1px solid var(--line);border-radius:4px;padding:5px 7px;font-size:12.5px;outline:none"></td>
+      <td style="text-align:center;padding:4px;white-space:nowrap">
+        <button class="btn sm" data-moveup="${i}" ${i===0?'disabled':''} title="上移一位">↑</button>
+        <button class="btn sm" data-movedn="${i}" ${i===n-1?'disabled':''} title="下移一位">↓</button>
+        <button class="btn sm" data-delcol="${i}" style="color:#b42318">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  openModal('列设置 —— 增删列 / 拖动排序 / 改名 / 隐藏 / 调宽', `
+    <div class="helpText" style="margin-bottom:10px">
+      按住最左边的 <b>⠿ 拖</b> 上下拖，拖到哪一行出现<b>蓝色横线</b>就插到那里（松手生效）；也可以用 ↑ ↓ 一格一格挪。列名、显示、宽度改完点「应用」。
+    </div>
+    <table class="items colTable" style="table-layout:fixed;min-width:0">
+      <thead><tr>
+        <th style="width:72px">拖动</th><th style="width:44px">顺序</th><th>列名（表头文字）</th>
+        <th style="width:52px">显示</th><th style="width:92px">宽度</th><th style="width:150px">操作</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="helpText" style="margin-top:10px">
+      注：序号列由软件自动填；「数量」列决定合计数字落在哪一格，删掉数量列则合计跟在小计/合计文字后面。
+      粘贴 Excel 仍按固定顺序识别（存货编号 → 名称 → 规格 → 项目编号 → 单位 → 数量 → 品号 → 合同编号），
+      被删掉的列对应的数据不会写进单里。
+    </div>`, [
+      {label:'恢复默认', act:()=>{
+        UI.cols = defaultCols(); UI.colsCustom=false; colsDraft=null;
+        closeModal(); renderItems(); renderPrint(); saveSettings();
+        toast('已恢复默认 9 列');
+      }},
+      {label:'＋ 添加列', act:()=>{
+        const cur = readCols();
+        const k = nextColKey(cur);
+        cur.push({k, name:'新列'+(cur.length+1), on:true, w:60});
+        showCols(cur);
+      }},
+      {label:'取消', act:()=>{ colsDraft=null; closeModal(); }},
+      {label:'应用', primary:true, act:applyCols}
+    ]);
+
+  // 上下移 / 删除
+  $('#modalBox').querySelectorAll('[data-delcol]').forEach(b=>{
+    b.onclick = ()=>{
+      const cur = readCols();
+      const i = +b.dataset.delcol;
+      if(cur.length<=2){ toast('至少要保留两列'); return; }
+      cur.splice(i,1);
+      showCols(cur);
+    };
+  });
+  $('#modalBox').querySelectorAll('[data-moveup]').forEach(b=>{
+    b.onclick = ()=> shiftCol(readCols(), +b.dataset.moveup, -1);
+  });
+  $('#modalBox').querySelectorAll('[data-movedn]').forEach(b=>{
+    b.onclick = ()=> shiftCol(readCols(), +b.dataset.movedn, 1);
+  });
+
+  // 鼠标拖动换位：整行跟随鼠标，落点上方=插到该行前，下方=插到该行后
+  let dragFrom = null;
+  const box = $('#modalBox');
+  const tbody = box.querySelector('tbody');
+  const rowEls = [...tbody.querySelectorAll('tr')];
+
+  rowEls.forEach((tr,i)=>{
+    const handle = tr.querySelector('[data-handle]');
+    if(handle) handle.addEventListener('mousedown', ()=>{
+      rowEls.forEach(x=>x.draggable=false);
+      tr.draggable = true;
+    });
+    tr.addEventListener('dragstart', e=>{
+      if(!tr.draggable){ e.preventDefault(); return; }
+      dragFrom = i;
+      tr.classList.add('dragging');
+      if(e.dataTransfer){
+        e.dataTransfer.effectAllowed='move';
+        try{ e.dataTransfer.setData('text/plain', String(i)); }catch(_){}
+        try{ e.dataTransfer.setDragImage(tr, 40, 20); }catch(_){}   // 拖影=整行，不会看着像消失
+      }
+    });
+    tr.addEventListener('dragend', ()=>{
+      const cancelled = dragFrom !== null;
+      tr.draggable = false;
+      dragFrom = null;
+      rowEls.forEach(x=>x.classList.remove('dragging','dropBefore','dropAfter'));
+      if(cancelled) toast('没有拖到行上，位置未改动（松手时要落在某一行的蓝色横线上）');
+    });
+  });
+
+  tbody.addEventListener('dragover', e=>{
+    if(dragFrom===null) return;
+    e.preventDefault();
+    if(e.dataTransfer) e.dataTransfer.dropEffect='move';
+    const tr = e.target.closest ? e.target.closest('tr') : null;
+    rowEls.forEach(x=>x.classList.remove('dropBefore','dropAfter'));
+    if(!tr || !tr.dataset.ri) return;
+    const r = tr.getBoundingClientRect();
+    tr.classList.add((e.clientY - r.top) > r.height/2 ? 'dropAfter' : 'dropBefore');
+  });
+  tbody.addEventListener('dragleave', e=>{
+    if(!e.relatedTarget || !tbody.contains(e.relatedTarget)){
+      rowEls.forEach(x=>x.classList.remove('dropBefore','dropAfter'));
+    }
+  });
+  tbody.addEventListener('drop', e=>{
+    if(dragFrom===null) return;
+    e.preventDefault();
+    const from = dragFrom;
+    const tr = e.target.closest ? e.target.closest('tr') : null;
+    let at;
+    if(tr && tr.dataset.ri){
+      at = (+tr.dataset.ri) + (tr.classList.contains('dropAfter') ? 1 : 0);
+    } else {
+      at = rowEls.length;
+    }
+    dragFrom = null;
+    rowEls.forEach(x=>x.classList.remove('dragging','dropBefore','dropAfter'));
+    let to = at; if(to > from) to -= 1;
+    if(to === from) return;
+    const cur = readCols();
+    const moved = cur.splice(from,1)[0];
+    cur.splice(to,0,moved);
+    showCols(cur);
+    toast('已把「'+moved.name+'」放到第 '+(to+1)+' 列');
+  });
+}
+function shiftCol(cur, i, d){
+  const j = i + d;
+  if(j<0 || j>=cur.length) return;
+  const moved = cur.splice(i,1)[0];
+  cur.splice(j,0,moved);
+  showCols(cur);
+}
+
+function readCols(){
+  const box = $('#modalBox');
+  const names=[...box.querySelectorAll('.colName')];
+  const ons=[...box.querySelectorAll('.colOn')];
+  const ws=[...box.querySelectorAll('.colW')];
+  return (colsDraft||[]).map((c,i)=>({
+    k: c.k,
+    name: String(names[i]? names[i].value : c.name).trim() || c.name || '列',
+    on: ons[i]? ons[i].checked : true,
+    w: Math.max(5, Math.min(600, (ws[i]? +ws[i].value : c.w) || 60))
+  }));
+}
+
+function applyCols(){
+  const next = readCols();
+  if(next.filter(c=>c.on).length < 2){ toast('至少要保留两列显示'); return; }
+  const def = defaultCols();
+  UI.cols = next;
+  UI.colsCustom = !(next.length===def.length && next.every((c,i)=>c.k===def[i].k && c.w===def[i].w));
+  colsDraft = null;
+  closeModal(); renderItems(); renderPrint(); saveSettings();
+  toast('列设置已应用，共 '+next.length+' 列，打印预览已同步');
+}
+
+/* ============ 粘贴 Excel ============ */
+function onPaste(e){
+  const ae = document.activeElement;
+  if(!ae || !ae.closest || !ae.closest('#itemTable')) return;
+  const text = (e.clipboardData||window.clipboardData).getData('text');
+  if(!text || !/\t|\n/.test(text)) return;
+  e.preventDefault();
+  const rows = parseTSV(text);
+  if(!rows.length){ toast('没有识别到有效明细'); return; }
+  if(model.items.length===1 && !Object.values(model.items[0]).some(v=>String(v).trim())) model.items=[];
+  rows.forEach(r=>model.items.push(r));
+  renderItems(); refresh();
+  toast('已导入 '+rows.length+' 行明细');
+}
+function parseTSV(raw){
+  const lines = String(raw).replace(/\r\n|\r/g,'\n').split('\n').filter(l=>l.trim());
+  const out=[];
+  for(const ln of lines){
+    let cells = ln.includes('\t') ? ln.split('\t') : ln.split(/\s{2,}/);
+    cells = cells.map(c=>c.trim());
+    if(!cells.length) continue;
+    if(ln.includes('存货编号') || cells[0]==='序号') continue;
+    if(cells.length>=9 && /^\d+$/.test(cells[0])) cells=cells.slice(1);
+    while(cells.length<8) cells.push('');
+    cells = cells.slice(0,8);
+    const it = {code:cells[0],name:cells[1],spec:cells[2],proj:cells[3],unit:cells[4],qty:cells[5],pin:cells[6],contract:cells[7]};
+    if(Object.values(it).some(v=>v)) out.push(it);
+  }
+  return out;
+}
+
+/* ============ 分页 & 渲染 ============ */
+function currentProfile(){ return PROFILES[UI.layout] || PROFILES.tri; }
+
+function ratioNow(P){
+  const vis = visibleCols();
+  if(!UI.colsCustom && vis.length===COLS.length) return P.colRatios.slice(0, vis.length);
+  const raw = vis.map(c=>{
+    if(UI.colsCustom) return c.w;
+    const i = COLS.findIndex(x=>x.k===c.k);
+    return P.colRatios[i] || 0.1;
+  });
+  const sum = raw.reduce((a,b)=>a+b,0) || 1;
+  return raw.map(v=>v/sum);
+}
+function geom(P){
+  const vis = visibleCols();
+  const rs = ratioNow(P);
+  const xs=[P.x0];
+  rs.forEach(r=>xs.push(xs[xs.length-1]+r*P.tableW));
+  xs[xs.length-1]=P.x0+P.tableW;
+  const cx=[], w={};
+  for(let i=0;i<xs.length-1;i++){ cx.push((xs[i]+xs[i+1])/2); w[vis[i].k]=xs[i+1]-xs[i]; }
+  const lx=P.labelRatios.map(r=>P.x0+r*P.tableW);
+  const vx=P.valueRatios.map(r=>P.x0+r*P.tableW);
+  return {xs,cx,vis,w,lx,vx};
+}
+
+/* 名称这类可能很长的格子：按「货物明细」字号整行排、长了自动换行，
+   不缩字号、也不截断——和明细里其他内容始终保持同一个字号 */
+function wrapCell(text, maxW, fs){
+  return {lines: wrapText(text, maxW, fs), fs: fs};
+}
+
+function prepareRows(P,G){
+  const specW = (G.w.spec || P.tableW/4) - 8;
+  const nameW = (G.w.name || P.tableW/4) - 8;
+  const k = fontScale().item;              // 货物明细字号倍数：换行与行高一起跟着变
+  const fs = P.font*k, lh = P.lineH*k;
+  return model.items.map(it=>{
+    const lines = wrapText(it.spec||'', specW, fs);
+    const nm = wrapCell(it.name||'', nameW, fs);
+    const h = Math.max(P.rowMin, 10 + Math.max(lines.length, nm.lines.length)*lh);
+    return {it, lines, nameLines:nm.lines, nameFs:nm.fs, nameLh:lh, h};
+  });
+}
+
+/* 这一行是否真的有条目内容：除「序号」外的可见列全空 → 视为空行，不打印 */
+function rowHasData(it){
+  if(!it) return false;
+  return visibleCols().some(c=>{
+    if(c.k==='seq') return false;
+    const v = it[c.k];
+    return String(v==null?'':v).trim() !== '';
+  });
+}
+
+/* 合计行的高度：字号放大时行框跟着长，否则字会压在上下两条横线上 */
+function totalHOf(P){
+  const k = fontScale().item;
+  return Math.max(P.totalH, P.font*k*1.55);
+}
+function buildPages(){
+  const P=currentProfile(), G=geom(P);
+  // 没有序号的空行（整行都空）直接剔除，不占位、不打印
+  let rows = prepareRows(P,G).filter(r=>rowHasData(r.it));
+  const yStart = P.tableTop + P.hdrH;
+  const avail = (P.tableBottom - totalHOf(P)) - yStart;
+
+  const pages=[]; let cur=[], used=0;
+  for(const r of rows){
+    if(cur.length && (used + r.h > avail || cur.length >= P.maxRows)){ pages.push(cur); cur=[]; used=0; }
+    cur.push(r); used += r.h;
+  }
+  pages.push(cur);
+  if(!pages.length) pages.push([]);
+
+  return pages.map(pageRows=>{
+    let list = pageRows.slice();
+    if(P.key==='tri' && UI.fillTri){
+      // 铺满纸底：剩下的高度按正常行高均分成若干空行，别堆成一个巨行
+      let slack = avail - list.reduce((s,r)=>s+r.h,0);
+      if(slack > 1){
+        const n = Math.max(1, Math.round(slack / P.rowMin));
+        const each = slack / n;
+        for(let k=0;k<n;k++) list.push({blank:true, h:each});
+      }
+    }
+    if(P.fillRows){
+      const slack = avail - list.reduce((s,r)=>s+r.h,0);
+      const blanks = P.maxRows - list.length;
+      if(list.length && slack>0){
+        if(blanks>0){
+          const bh = slack/blanks;
+          for(let k=0;k<blanks;k++) list.push({blank:true, h:bh});
+        } else {
+          const add = slack/list.length;
+          list = list.map(r=>({...r, h:r.h+add}));
+        }
+      } else if(!list.length){
+        const bh = avail/P.maxRows;
+        for(let k=0;k<P.maxRows;k++) list.push({blank:true, h:bh});
+      }
+    }
+    return {rows:list, G};
+  });
+}
+
+function fitText(text, maxW, fs, bold){
+  let s = String(text==null?'':text);
+  let size = fs;
+  while(size>6.5 && measure(s,size,bold)>maxW) size-=0.3;
+  return {text:s, size:size, clipped: measure(s,size,bold)>maxW};
+}
+
+function pageHTML(page, idx, total, P){
+  const {rows,G}=page;
+  const {xs,cx,lx,vx}=G;
+  const W=P.tableW, H=P.pageH;
+  const wcol = xs.map((x,i)=> i<xs.length-1 ? (xs[i+1]-x) : 0);
+  // 三块字号倍数：标头 / 单据信息 / 货物明细
+  const ft = fontScale();
+  const titleBase = P.titleSize * ft.title;
+  const fInfo = P.font * ft.info;
+  const fItem = P.font * ft.item;
+  const lhItem = P.lineH * ft.item;
+
+  // 表头三行
+  const infos=[
+    [['制 单 人：','maker'],['录单日期：','date'],['单据编号：','no']],
+    [['经 办 人：','agent'],['部    门：','dept'],['发货仓库：','warehouse']],
+    [['客    户：','customer'],['摘    要：','summary']]
+  ];
+  let headHTML='';
+  infos.forEach((row,ri)=>{
+    row.forEach(([label,key],ci)=>{
+      const val = model[key]||'';
+      // 标签一律占「5 个字」宽（空格数已按 100% 配平），冒号才对得齐；
+      // 字号放大后标签会变宽，值的起点跟着往右让，绝不会压在标签上
+      const labW = 5 * fInfo;
+      const vl = lx[ci] + labW + 5;                // 冒号后统一留 5pt，值起点整齐
+      let maxW;
+      if(ci===0) maxW = lx[1]-vl-6;
+      else if(ci===1 && ri===2) maxW = xs[xs.length-1]-vl-6;
+      else if(ci===1) maxW = lx[2]-vl-3;
+      else maxW = xs[xs.length-1]-vl-3;
+      const f = val? fitText(val,maxW,fInfo):null;
+      headHTML += `<div class="kv" style="left:${lx[ci]}pt;top:${P.infoBaselines[ri]-fInfo*0.86}pt;font-size:${fInfo}pt;line-height:1;white-space:pre">${esc(label)}</div>`;
+      if(f) headHTML += `<div class="kv" style="left:${vl}pt;top:${P.infoBaselines[ri]-f.size*0.86}pt;font-size:${f.size}pt;line-height:1;${f.clipped?'max-width:'+maxW+'pt;overflow:hidden':''}">${esc(f.text)}</div>`;
+    });
+  });
+
+  // 表格（列由「列设置」决定：名称、显示、宽度）
+  let ths='';
+  const thBg = P.fill? 'background:#ccffcc;' : 'background:#fff;';
+  G.vis.forEach(c=>{
+    const f = fitText(c.name, (G.w[c.k]||40)-4, fItem, true);
+    ths += `<th style="width:${G.w[c.k]}pt;height:${P.hdrH}pt;font-size:${f.size}pt;${thBg}${strokeOf(f.size)}">${esc(f.text)}</th>`;
+  });
+
+  // 序号需要累计，由外部传入起始号
+  let body='', rowStart = page.startSeq;
+  rows.forEach((r,ri)=>{
+    const n = r.blank? '' : (rowStart + ri + 1);
+    const it = r.blank? blankItem() : r.it;
+    let tds='';
+    G.vis.forEach(c=>{
+      const k = c.k, cw = G.w[k]||0;
+      if(k==='seq'){
+        tds += `<td style="height:${r.h}pt;padding:0 2.4pt;text-align:center;font-size:${fItem}pt"><span class="c" style="text-align:center">${n}</span></td>`;
+        return;
+      }
+      if(k==='spec'){
+        const inner = r.blank? '' : r.lines.map(ln=>esc(ln)).join('<br>');
+        tds += `<td class="specCell" style="height:${r.h}pt;font-size:${fItem}pt;line-height:${lhItem}pt;padding:0 4pt;text-align:center">${inner}</td>`;
+        return;
+      }
+      if(k==='name'){
+        // 存货名称：长了就自动换行（和明细字号同号），不再截断成半截
+        const nfs = r.nameFs || fItem, nlh = r.nameLh || lhItem;
+        const inner = r.blank? '' : (r.nameLines||[]).map(ln=>esc(ln)).join('<br>');
+        tds += `<td class="specCell" style="height:${r.h}pt;font-size:${nfs}pt;line-height:${nlh}pt;padding:0 4pt;text-align:center">${inner}</td>`;
+        return;
+      }
+      let align='center';
+      if(k==='code') align='left';
+      if(k==='qty') align='right';
+      const txt = it[k]||'';
+      const f = txt? fitText(txt, cw-4.8, fItem):null;
+      tds += `<td style="height:${r.h}pt;padding:0 2.4pt;text-align:${align};font-size:${f?f.size:fItem}pt"><span class="c" style="text-align:${align}">${f?esc(f.text):''}</span></td>`;
+    });
+    body += `<tr>${tds}</tr>`;
+  });
+
+  const totH = totalHOf(P);
+  const yBottom = P.tableTop + P.hdrH + rows.reduce((s,r)=>s+r.h,0);
+  const totalTop = yBottom, totalBottom = yBottom + totH;
+  const isLast = idx===total-1;
+  const pageQty = rows.filter(r=>!r.blank).reduce((s,r)=>s+num(r.it.qty),0);
+  const showQty = isLast ? totalQty(model.items) : fmtQty(pageQty);
+  const totalLabel = isLast?'合计':'小计';
+  const qi = G.vis.findIndex(c=>c.k==='qty');
+  let totalRow;
+  if(qi>=0){
+    const before = qi, after = G.vis.length-qi-1;
+    totalRow = '<tr>'
+      + (before>0 ? `<td colspan="${before}" style="height:${totH}pt;font-size:${fItem}pt;padding-left:1.7pt">${totalLabel}</td>` : '')
+      + `<td style="height:${totH}pt;font-size:${fItem}pt;text-align:center">${showQty}</td>`
+      + (after>0 ? `<td colspan="${after}" style="height:${totH}pt"></td>` : '')
+      + '</tr>';
+  } else {
+    totalRow = `<tr><td colspan="${G.vis.length}" style="height:${totH}pt;font-size:${fItem}pt;padding-left:1.7pt">${totalLabel}　${showQty}</td></tr>`;
+  }
+
+  // 签字栏：文字顶到「合计」下面那条横线，永远留出至少 SIG_GAP 的空隙。
+  // 以前是按固定基线走，货物明细字号一放大，字就顶到横线上去了。
+  const SIG_GAP = Math.max(10, fItem*0.9);
+  const sigTop = totalBottom + Math.max(P.sigOffset - fItem*0.86, SIG_GAP);
+  const sigs = ['财务','送货人','购货单位签字'].map((t,i)=>{
+    let text = t, size = fItem;
+    if(i===1 && model.shipper){
+      const maxW = (P.sigX[2] - P.sigX[1]) - 8;
+      const f = fitText('送货人：'+model.shipper, maxW, fItem);
+      text = f.text; size = f.size;
+    }
+    return `<div class="sig" style="left:${P.x0+P.sigX[i]}pt;top:${sigTop}pt;font-size:${size}pt;line-height:1">${esc(text)}</div>`;
+  }).join('');
+
+  const titleText = (model.company||'')+'  ' + (model.dtype || '送货单');
+  const titleSize = (function(){
+    let ts=titleBase;
+    while(ts>9 && measure(titleText, ts, true) > P.tableW) ts-=0.5;
+    return ts;
+  })();
+
+  const pageNo = total>1 ? `<div class="kv" style="right:${P.pageW-(P.x0+P.tableW)}pt;top:${(P.pageNo==='top'?P.titleY:815)-7.5*0.86}pt;font-size:7.5pt;color:#4b5563;line-height:1">第 ${idx+1} 页 / 共 ${total} 页</div>`:'';
+
+  // 上下微调：整页内容整体上下平移（1mm = 2.8346pt），只挪内容不动纸
+  const ofsMm = curOfs();
+  const shiftStyle = ofsMm ? `transform:translateY(${(ofsMm*2.83465).toFixed(2)}pt);` : '';
+
+  return `<div class="page" style="width:${P.pageW}pt;height:${P.pageH}pt">
+    <div class="pgShift" style="${shiftStyle}">
+    <div class="ttl" style="left:${P.x0}pt;width:${P.tableW}pt;text-align:center;top:${P.titleY-titleSize*0.86}pt;font-size:${titleSize}pt;line-height:1;${strokeOf(titleSize)}">${esc(titleText)}</div>
+    ${headHTML}
+    <table style="left:${P.x0}pt;top:${P.tableTop}pt;width:${P.tableW}pt">
+      <thead><tr>${ths}</tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot>${totalRow}</tfoot>
+    </table>
+    ${sigs}
+    ${pageNo}
+    </div>
+  </div>`;
+}
+
+function renderPrint(){
+  const P=currentProfile();
+  const pages = buildPages();
+  // 计算每页起始序号
+  let seq=0;
+  const list = pages.map(pg=>{
+    const start=seq;
+    seq += pg.rows.filter(r=>!r.blank).length;
+    return {rows:pg.rows, G:pg.G, startSeq:start};
+  });
+
+  $('#pageRule').textContent = `@media print{ @page{ size:${P.cssSize}; margin:0 } }`;
+  const html = list.map((pg,i)=>pageHTML(pg,i,list.length,P)).join('');
+  $('#printRoot').innerHTML = html;
+  $('#previewScale').innerHTML = html;
+  updateTag();
+  applyZoom();
+  LS.set(DRAFT_KEY, model);
+}
+
+/* 预览缩放：不设 UI.zoom 时自动铺满预览区；±按 10% 一档，范围 25%~160% */
+function fitZoom(){
+  const P = currentProfile();
+  const wrap = $('#previewScroll');
+  const availPx = ((wrap ? wrap.clientWidth : 0) || 640) - 28;
+  const pagePx = P.pageW * (96/72);
+  const s = availPx / pagePx;
+  return Math.max(0.25, Math.min(1.6, s));
+}
+function applyZoom(){
+  const P=currentProfile();
+  const pagePx = P.pageW * (96/72);
+  let s = UI.zoom || fitZoom();
+  s = Math.max(0.25, Math.min(1.6, s));
+  const el = $('#previewScale');
+  el.style.zoom = s;
+  el.style.width = pagePx+'px';
+  const pct = Math.round(s*100);
+  $('#zoomLabel').textContent = (UI.zoom ? pct + '%' : pct + '%（适应）');
+}
+
+
+let refreshTimer=null;
+function refresh(){
+  if(refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(()=>{ renderPrint(); }, 180);
+}
+
+/* ============ 单据操作 ============ */
+function nextNo(date){
+  const prefix = 'XS-'+(date||today())+'-';
+  let mx=0;
+  (UI.recs||[]).forEach(r=>{
+    const no=(r.data&&r.data.no)||'';
+    if(no.indexOf(prefix)===0){ const n=parseInt(no.slice(prefix.length),10); if(!isNaN(n)) mx=Math.max(mx,n); }
+  });
+  return prefix+String(mx+1).padStart(5,'0');
+}
+/* 编号留空时，真正要印/要存的那一刻才补一个：按当天已存单据的流水往后排 */
+function ensureNo(){
+  if(String(model.no||'').trim()) return model.no;
+  model.no = nextNo(model.date);
+  const el = $('#f_no');
+  if(el) el.value = model.no;
+  updateTag();
+  return model.no;
+}
+
+function collect(){
+  const keys = UI.cols.map(c=>c.k);
+  model.items = model.items.map(it=>{
+    const o={};
+    keys.forEach(k=>{ if(k!=='seq') o[k] = String(it[k]==null? '' : it[k]); });
+    return o;
+  }).filter(it=>Object.values(it).some(v=>String(v||'').trim()));
+  if(!model.items.length) model.items=[blankItem()];
+  return JSON.parse(JSON.stringify(model));
+}
+
+function newDoc(){
+  // 新建 = 一张干净的单：单据信息里填过的人、部门、仓库、客户、摘要全部清空，
+  // 只保留「公司抬头」和「单据类型」这两个长期设置，日期和编号自动重新生成
+  const set = LS.get(SET_KEY, {});
+  model = {
+    company: set.company || '苏州安驰电子科技有限公司',
+    date: today(), no: '',
+    dtype: set.dtype || '送货单',
+    maker:'', agent:'', shipper:'', dept:'', warehouse:'', customer:'', summary:'',
+    items:[blankItem()]
+  };
+  renderForm(); renderItems(); renderPrint();
+  toast('已新建单据（单据信息已清空，编号保存或打印时自动生成）');
+}
+
+function cloneDoc(){
+  const no = nextNo(model.date);
+  model.no = no;
+  model.name = '';
+  renderForm(); renderPrint();
+  toast('已复制为新单据 '+no);
+}
+
+/* 单名：用户自己起的名字；没起就用「客户 + 单据编号」 */
+function autoTitle(d){
+  const c = String((d && d.customer) || '').trim();
+  const n = String((d && d.no) || '').trim();
+  if(c && n) return c + ' ' + n;
+  return c || n || '未命名单据';
+}
+
+function saveDoc(){
+  if(!model.customer){ toast('请先填写客户名称'); $('#f_customer').focus(); return; }
+  ensureNo();
+  const data = collect();
+  const id = data.date+'_'+data.no;
+  const old = (UI.recs||[]).find(r=>r.id===id);
+  const auto = autoTitle(data);
+  const suggest = String((old && old.data && old.data.name) || '').trim();
+  openModal('保存这张单据', `
+    <div class="helpText" style="line-height:1.7">给这张单起个名字，以后在「记录库」里一眼就能找到。<br>
+      不起名字也行，会自动用「客户 + 单据编号」：<b style="color:#1f6feb">${esc(auto)}</b></div>
+    <input class="field" id="saveName" maxlength="60" style="width:100%;font-size:14px;margin:10px 0 2px"
+           placeholder="不填就用：${esc(auto)}" value="${esc(suggest)}">
+    <div class="helpText" style="margin-top:10px;color:#6b7280;line-height:1.75">
+      客户：${esc(data.customer||'')}　单据编号：${esc(data.no)}<br>
+      日期：${esc(data.date)}　类型：${esc(data.dtype||'送货单')}　明细 ${data.items.length} 条　合计数量 ${esc(totalQty(data.items))}
+      ${old? '<br><b style="color:#b45309">这张单（同日期同编号）已经保存过，保存会用现在的内容覆盖原来那条。</b>' : ''}
+    </div>`,
+    [{label:'取消', act:closeModal},
+     {label:'保存', primary:true, act:()=>doSaveNow(data, id)}]);
+  const inp = $('#saveName');
+  if(inp){
+    setTimeout(()=>{ try{ inp.focus(); inp.select(); }catch(e){} }, 40);
+    inp.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); const b=$('#modalBox').querySelector('.btn.primary'); if(b) b.click(); }
+    });
+  }
+}
+
+/* 真正写库：name 为空则自动命名 */
+function doSaveNow(data, id){
+  const inp = $('#saveName');
+  const given = String((inp && inp.value) || '').trim().slice(0,60);
+  data.name = given || autoTitle(data);
+  model.name = data.name;
+  const rec = { id, name:data.name, savedAt:new Date().toLocaleString('zh-CN'), data };
+  UI.recs = (UI.recs||[]).filter(r=>r.id!==id);
+  UI.recs.unshift(rec);
+  if(UI.recs.length>500) UI.recs.length=500;
+  if(!LS.set(REC_KEY, UI.recs)){ toast('浏览器本地存储不可用，请用「导出备份」保存'); }
+
+  // 记住常用 & 商品库
+  const set = LS.get(SET_KEY,{});
+  set.company=data.company; set.maker=data.maker; set.agent=data.agent; set.shipper=data.shipper; set.warehouse=data.warehouse; set.dtype=data.dtype||'送货单';
+  LS.set(SET_KEY, set);
+  // 这一单里填过的人 / 部门 / 仓库 / 客户，自动变成下拉候选
+  OPT_KEYS.forEach(k=>{ if(String(data[k]||'').trim()) rememberOption(k, data[k], true); });
+
+  const lib = LS.get(LIB_KEY,{});
+  data.items.forEach(it=>{
+    if(it.code && (it.name||it.spec)){
+      lib[it.code] = Object.assign(lib[it.code]||{}, {name:it.name,spec:it.spec,unit:it.unit,pin:it.pin});
+    }
+  });
+  LS.set(LIB_KEY, lib);
+
+  closeModal();
+  renderForm(); renderPrint();
+  updateRecCount();
+  toast('已保存：'+data.name);
+}
+
+function openRecords(){
+  const recs = UI.recs||[];
+  const body = recs.length? `<table class="items" style="table-layout:auto">
+    <thead><tr><th style="width:86px">日期</th><th style="width:74px">类型</th><th style="width:150px">单据编号</th><th>名称 / 客户</th><th style="width:52px">数量</th><th style="width:92px">保存时间</th><th style="width:70px">操作</th></tr></thead>
+    <tbody>${recs.map((r,i)=>`<tr>
+      <td style="padding:6px 8px;text-align:center;font-size:12.5px;white-space:nowrap">${esc(r.data.date)}</td>
+      <td style="padding:6px 8px;text-align:center;font-size:12px;color:#1f6feb;font-weight:600;white-space:nowrap">${esc(r.data.dtype||"送货单")}</td>
+      <td style="padding:6px 8px;text-align:center;font-size:12px;white-space:nowrap">${esc(r.data.no)}</td>
+      <td style="padding:6px 8px;font-size:12.5px">
+        <div style="font-weight:600;color:#1f2937">${esc(r.data.name || (r.name||'') || autoTitle(r.data))}</div>
+        <div style="font-size:11.5px;color:#6b7280;margin-top:1px">${esc(r.data.customer)}</div></td>
+      <td style="padding:6px 8px;text-align:right;font-size:12.5px">${totalQty(r.data.items)}</td>
+      <td style="padding:6px 8px;text-align:center;font-size:12px;color:#6b7280">${esc(r.savedAt||'')}</td>
+      <td style="padding:4px;text-align:center;white-space:nowrap"><button class="btn sm" data-open="${i}">打开</button>
+        <button class="btn sm" data-del="${i}" style="color:#b42318">删除</button></td>
+    </tr>`).join('')}</tbody></table>` : '<div style="color:#6b7280;padding:20px;text-align:center">还没有保存过单据</div>';
+
+  openModal('记录库', body, [
+    {label:'关闭', act:closeModal}
+  ]);
+  $('#modalBox').querySelectorAll('[data-open]').forEach(b=>{
+    b.onclick = ()=>{
+      const r = recs[+b.dataset.open];
+      model = JSON.parse(JSON.stringify(r.data));
+      if(!String(model.name||'').trim()) model.name = r.name || autoTitle(r.data);
+      renderForm(); renderItems(); renderPrint();
+      closeModal(); toast('已打开 '+(model.name||model.no));
+    };
+  });
+  $('#modalBox').querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick = ()=>{
+      const i = +b.dataset.del;
+      const rec = recs[i];
+      if(!rec) return;
+      const snap = JSON.parse(JSON.stringify(UI.recs||[]));
+      const nm = (rec.data && (rec.data.name || rec.data.no)) || '';
+      UI.recs.splice(i,1);
+      LS.set(REC_KEY, UI.recs);
+      openRecords();
+      offerUndo('已删除记录 '+(nm||''), ()=>{
+        UI.recs = JSON.parse(JSON.stringify(snap));
+        LS.set(REC_KEY, UI.recs);
+        openRecords();
+        toast('已恢复该记录');
+      });
+    };
+  });
+}
+
+function doPrint(){
+  collect();
+  renderPrint();
+  const set = LS.get(SET_KEY, {});
+  if(set.printHint === false){ setTimeout(doPrintNow, 120); return; }
+  showPrintCheck();
+}
+
+/* 另存 PDF 时的默认文件名：客户 + 单据编号（去掉文件名里不允许的字符） */
+function printFileName(){
+  const raw = (String(model.customer||'').trim() + ' ' + String(model.no||'').trim()).trim();
+  const safe = raw.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0,100);
+  return safe || '送货单';
+}
+/* ============ 导出 Excel：真正的 .xlsx（手写 zip，零依赖） ============ */
+/* 结构和纸面一模一样：标题 / 三行单据信息 / 表头 / 明细 / 合计 / 签字栏。
+   列、列名、顺序、宽度全部跟随「列设置」，隐藏的列不导出；数量是真数字，
+   合计用 SUM 公式，导出后还能接着筛选、求和。
+   文件名和另存 PDF 一致：「客户 单据编号.xlsx」。 */
+function xlsxCell(ref, s, val, numeric){
+  if(val===undefined || val===null || String(val)==='') return '<c r="'+ref+'" s="'+s+'"/>';
+  if(numeric) return '<c r="'+ref+'" s="'+s+'"><v>'+val+'</v></c>';
+  return '<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEscape(val)+'</t></is></c>';
+}
+
+function xlTextW(s){
+  s = String(s == null? '' : s); let w = 0;
+  for(let i=0;i<s.length;i++){ w += (s.charCodeAt(i) > 255 ? 2 : 1); }   // 中文按两个字符宽算
+  return w;
+}
+
+function xlsxStyles(){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<fonts count="3">'
+    + '<font><sz val="11"/><name val="宋体"/><charset val="134"/></font>'
+    + '<font><b/><sz val="11"/><name val="宋体"/><charset val="134"/></font>'
+    + '<font><b/><sz val="16"/><name val="宋体"/><charset val="134"/></font>'
+    + '</fonts>'
+    + '<fills count="3">'
+    + '<fill><patternFill patternType="none"/></fill>'
+    + '<fill><patternFill patternType="gray125"/></fill>'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill>'
+    + '</fills>'
+    + '<borders count="2">'
+    + '<border><left/><right/><top/><bottom/><diagonal/></border>'
+    + '<border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right>'
+    + '<top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border>'
+    + '</borders>'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="8">'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="1" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    + '</cellXfs>'
+    + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+    + '</styleSheet>';
+}
+
+function xlsxSheetXml(data, vis){
+  const n = Math.max(1, vis.length);
+  const last = colLetter(n-1);
+  const R = [], merges = [];
+  const items = (data.items || []);
+  const ttl = (String(data.company || '') + '  ' + String(data.dtype || '送货单')).trim();
+
+  let row1 = xlsxCell('A1', 1, ttl);
+  for(let i=1;i<n;i++) row1 += xlsxCell(colLetter(i)+'1', 1, '');
+  if(n>1) merges.push('A1:'+last+'1');
+  R.push('<row r="1" ht="30" customHeight="1">'+row1+'</row>');
+
+  const info = [
+    '制单人：' + (data.maker || '') + '      录单日期：' + (data.date || '') + '      单据编号：' + (data.no || ''),
+    '经办人：' + (data.agent || '') + '      部门：' + (data.dept || '') + '      发货仓库：' + (data.warehouse || ''),
+    '客户：' + (data.customer || '') + '      摘要：' + (data.summary || '')
+  ];
+  info.forEach((txt, k)=>{
+    const r = 3 + k;
+    let cells = xlsxCell('A'+r, 2, txt);
+    for(let i=1;i<n;i++) cells += xlsxCell(colLetter(i)+r, 2, '');
+    if(n>1) merges.push('A'+r+':'+last+r);
+    R.push('<row r="'+r+'" ht="20" customHeight="1">'+cells+'</row>');
+  });
+
+  const totW = vis.reduce((s, c)=>s + (+c.w || 60), 0) || 1;
+  const colw = vis.map(c=>Math.min(60, Math.max(7, Math.round((+c.w || 60) / totW * 150))));
+
+  let head = '';
+  vis.forEach((c, i)=>{ head += xlsxCell(colLetter(i)+'7', 3, c.name); });
+  R.push('<row r="7" ht="30" customHeight="1">'+head+'</row>');
+
+  const first = 8;
+  items.forEach((it, k)=>{
+    const r = first + k;
+    let cells = '', need = 1;
+    vis.forEach((c, i)=>{
+      const ref = colLetter(i)+r;
+      if(c.k==='seq'){ cells += xlsxCell(ref, 4, String(k+1), true); return; }
+      if(c.k==='qty'){
+        const q = String(it.qty==null? '' : it.qty).trim();
+        cells += q ? xlsxCell(ref, 5, String(num(q)), true) : xlsxCell(ref, 4, '');
+        return;
+      }
+      const txt = it[c.k]==null? '' : String(it[c.k]);
+      // 存货名称可能很长：按列宽算要折几行，行高跟着长，Excel 里不会只露半截
+      need = Math.max(need, Math.ceil(xlTextW(txt) / Math.max(4, colw[i] - 1)));
+      cells += xlsxCell(ref, 4, txt);
+    });
+    const ht = Math.max(22, 6 + need * 15);
+    R.push('<row r="'+r+'" ht="'+ht+'" customHeight="1">'+cells+'</row>');
+  });
+
+  const qRow = first + Math.max(1, items.length);
+  const qi = vis.findIndex(c=>c.k==='qty');
+  const sum = totalQty(items);
+  if(qi>0){
+    let cells = xlsxCell('A'+qRow, 6, '合计');
+    for(let i=1;i<qi;i++) cells += xlsxCell(colLetter(i)+qRow, 6, '');
+    const qc = colLetter(qi);
+    if(items.length){
+      cells += '<c r="'+qc+qRow+'" s="5"><f>SUM('+qc+first+':'+qc+(first+items.length-1)+')</f><v>'+num(sum)+'</v></c>';
+    }else{
+      cells += xlsxCell(qc+qRow, 5, String(num(sum)), true);
+    }
+    for(let i=qi+1;i<n;i++) cells += xlsxCell(colLetter(i)+qRow, 6, '');
+    merges.push('A'+qRow+':'+colLetter(qi-1)+qRow);
+    R.push('<row r="'+qRow+'" ht="22" customHeight="1">'+cells+'</row>');
+  }else{
+    let cells = xlsxCell('A'+qRow, 6, '合计　'+sum);
+    for(let i=1;i<n;i++) cells += xlsxCell(colLetter(i)+qRow, 6, '');
+    if(n>1) merges.push('A'+qRow+':'+last+qRow);
+    R.push('<row r="'+qRow+'" ht="22" customHeight="1">'+cells+'</row>');
+  }
+
+  const sRow = qRow + 2;
+  const s1 = '财务', s2 = '送货人' + (data.shipper? '：'+data.shipper : ''), s3 = '购货单位签字';
+  let sc = '';
+  if(n>=3){
+    const k1 = Math.max(1, Math.round(n/3));
+    const k2 = Math.min(n-1, Math.max(k1+1, Math.round(2*n/3)));
+    [[0, k1-1, s1], [k1, k2-1, s2], [k2, n-1, s3]].forEach(seg=>{
+      const a = seg[0], b = seg[1];
+      merges.push(colLetter(a)+sRow+':'+colLetter(b)+sRow);
+      sc += xlsxCell(colLetter(a)+sRow, 7, seg[2]);
+      for(let i=a+1;i<=b;i++) sc += xlsxCell(colLetter(i)+sRow, 7, '');
+    });
+  }else{
+    sc = xlsxCell('A'+sRow, 7, s1 + '        ' + s2 + '        ' + s3);
+    for(let i=1;i<n;i++) sc += xlsxCell(colLetter(i)+sRow, 7, '');
+    if(n>1) merges.push('A'+sRow+':'+last+sRow);
+  }
+  R.push('<row r="'+sRow+'" ht="24" customHeight="1">'+sc+'</row>');
+
+  const colsXml = '<cols>' + colw.map((w, i)=>
+    '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>').join('') + '</cols>';
+
+  const mergesXml = merges.length
+    ? '<mergeCells count="'+merges.length+'">' + merges.map(m=>'<mergeCell ref="'+m+'"/>').join('') + '</mergeCells>'
+    : '';
+  const dimR = Math.max(sRow, qRow, first + items.length - 1, 7);
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<dimension ref="A1:'+last+dimR+'"/>'
+    + '<sheetViews><sheetView workbookViewId="0">'
+    + '<pane ySplit="7" topLeftCell="A8" activePane="bottomLeft" state="frozen"/>'
+    + '</sheetView></sheetViews>'
+    + '<sheetFormatPr defaultRowHeight="16"/>'
+    + colsXml
+    + '<sheetData>' + R.join('') + '</sheetData>'
+    + mergesXml
+    + '<pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/>'
+    + '<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+    + '</worksheet>';
+}
+
+function xlsxParts(data){
+  const vis = visibleCols();
+  const sn = (String(data.dtype || '送货单').replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 20) || '送货单');
+  const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  return [
+    {name:'[Content_Types].xml', data: head
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      + '</Types>'},
+    {name:'_rels/.rels', data: head
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      + '</Relationships>'},
+    {name:'xl/workbook.xml', data: head
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+      + '<sheets><sheet name="'+xmlEscape(sn)+'" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels', data: head
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      + '</Relationships>'},
+    {name:'xl/styles.xml', data: xlsxStyles()},
+    {name:'xl/worksheets/sheet1.xml', data: xlsxSheetXml(data, vis)}
+  ];
+}
+
+function buildXlsxBlob(data){ return makeZip(xlsxParts(data)); }
+
+function exportExcel(){
+  ensureNo();
+  const data = collect();
+  renderPrint();
+  const name = printFileName();
+  const blob = buildXlsxBlob(data);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name + '.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('已导出 Excel：' + name + '.xlsx（列设置、隐藏列与纸面一致）');
+}
+
+/* 真正调起浏览器打印：把「客户 编号」临时当作页面标题，
+   打印面板里的默认文件名就是这个标题；打完立刻恢复原标题（顶栏/版本号不受影响） */
+function doPrintNow(){
+  ensureNo(); renderPrint();
+  const oldTitle = document.title;
+  let timer = null;
+  const restore = ()=>{
+    document.title = oldTitle;
+    window.removeEventListener('afterprint', restore);
+    if(timer){ clearTimeout(timer); timer = null; }
+  };
+  timer = setTimeout(restore, 30000);
+  window.addEventListener('afterprint', restore);
+  document.title = printFileName();
+  try{ window.print(); }
+  catch(e){ restore(); toast('调不出打印面板，请点浏览器菜单里的「打印」'); }
+}
+
+/* 打印前确认：左下角出现 file:/// 就是边距/页眉页脚没设对 */
+function showPrintCheck(){
+  const paper = UI.layout==='a4' ? 'A4' : '三联纸 214.7×139.8（21.47×13.98cm）';
+  openModal('打印前确认这 4 项', `
+    <div class="helpText">
+      <div style="margin:0 0 9px">① 纸张 = <b>${esc(paper)}</b></div>
+      <div style="margin:0 0 9px">② 边距 = <b>无 / None</b>　<span style="color:#b42318">选「默认」会把浏览器页眉页脚带进来，纸张左下角就会出现 file:///D:/… 这种网址</span></div>
+      <div style="margin:0 0 9px">③ 页眉和页脚 = <b>取消勾选</b>（打印面板「更多设置」里的那一项）　
+        <span style="color:#6b7280">——这是浏览器加的，不是软件印的</span></div>
+      <div style="margin:0 0 9px">④ 缩放 = <b>100%</b>，不要选“适合纸张”</div>
+      <div style="margin:6px 0 0;color:#6b7280">单据编号：<b style="color:#1f6feb">${esc(String(model.no||'').trim() || ('未填，打印时自动生成 '+nextNo(model.date)))}</b></div>
+      <div style="margin-top:14px;padding-top:10px;border-top:1px dashed #d7dee8">
+        <label style="cursor:pointer"><input type="checkbox" id="phNoShow"> 以后不再显示这个提醒（随时可在「打印设置说明」里查看）</label>
+      </div>
+    </div>`, [
+      {label:'取消', act:closeModal},
+      {label:'继续打印', primary:true, act:()=>{
+        const cb = $('#phNoShow');
+        if(cb && cb.checked){
+          const s = LS.get(SET_KEY, {});
+          s.printHint = false;
+          LS.set(SET_KEY, s);
+        }
+        closeModal();
+        setTimeout(doPrintNow, 150);
+      }}
+    ]);
+}
+
+/* ============ 备份 ============ */
+function backup(){
+  const payload = {type:'送货单生成器备份', version:1, exportedAt:new Date().toISOString(),
+                   records:UI.recs||[], settings:LS.get(SET_KEY,{}), library:LS.get(LIB_KEY,{})};
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='送货单备份_'+today()+'.json';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  toast('已导出备份文件');
+}
+function restore(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange=()=>{
+    const f=inp.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const d=JSON.parse(rd.result);
+        if(!d || !d.records) { toast('备份文件格式不正确'); return; }
+        if(!confirm('将导入 '+d.records.length+' 条记录，覆盖当前记录库，继续？')) return;
+        UI.recs=d.records; LS.set(REC_KEY, UI.recs);
+        if(d.settings) LS.set(SET_KEY, d.settings);
+        if(d.library) LS.set(LIB_KEY, d.library);
+        toast('已导入 '+d.records.length+' 条记录');
+        location.reload();
+      }catch(e){ toast('读取失败：'+e.message); }
+    };
+    rd.readAsText(f,'utf-8');
+  };
+  inp.click();
+}
+
+/* ============ 弹窗 ============ */
+function openModal(title, bodyHTML, buttons){
+  const box=$('#modalBox');
+  box.innerHTML = `<div class="mhead"><b>${esc(title)}</b><span class="spacer"></span>
+      <button class="closeX" id="mClose">×</button></div>
+    <div class="mbody">${bodyHTML}</div>
+    <div class="mfoot">${buttons.map((b,i)=>`<button class="btn ${b.primary?'primary':''}" data-mi="${i}">${esc(b.label)}</button>`).join('')}</div>`;
+  box.querySelector('#mClose').onclick=closeModal;
+  box.querySelectorAll('[data-mi]').forEach(btn=>{
+    btn.onclick = ()=> buttons[+btn.dataset.mi].act();
+  });
+  $('#modalLayer').classList.add('show');
+}
+function closeModal(){ $('#modalLayer').classList.remove('show'); }
+
+function showHelp(){
+  openModal('针式打印机打印设置（LQ-300K+/630KII + 三联纸 214.7×139.8mm）', `
+    <div class="helpText">
+      <b>一、先在 Windows 里建一个 241×140mm 的纸张</b><br>
+      1. 控制面板 → 设备和打印机 → 选中 <b>Epson LQ-630KII</b> → 上方「打印服务器属性」。<br>
+      2. 勾选「创建新表单」，名称填 <code>三联纸21.47x13.98</code>，纸张宽度 <code>21.47 cm</code>，高度 <code>13.98 cm</code>（四个边距都填 0），保存。<br>
+      3. 打印机属性 → 首选项 → 纸张大小选这张新表单；纸张来源选「连续纸 / 拖纸器」。<br><br>
+
+      <b>二、本软件打印</b><br>
+      1. 版式选「三联纸 214.7×139.8mm（针式打印机）」。<br>
+      2. 点「打印 / 导出PDF」，打印对话框里：纸张 = 21.47×13.98（或 214.7×139.8mm）；缩放 = <b>默认或 100%</b>（不要选“适合纸张”）；边距 = <b>无</b>；取消勾选「页眉和页脚」。<br>
+      <b>若纸左下角出现 file:///D:/… 网址</b>：是打印对话框里「边距」选了“默认”，或「页眉和页脚」没取消勾选——这是浏览器自己加的，不是软件印的。改成边距=无、取消勾选后就不会再出现（Edge 一般会记住这次设置）。<br><br>
+      3. 只想存 PDF 时，打印机选 <b>Microsoft Print to PDF</b> 即可；若该驱动不支持自定义纸张、存出来的 PDF 被缩放，请把版式切到「A4」再存档。<br><br>
+
+      <b>三、套打位置微调</b><br>
+      如果打出来整体偏上或偏下，用工具栏的「上下微调」加减毫米（正数=往下），再打印对照，一般 0.5mm 一级就能对准。<br>
+      左右偏移请在打印机属性里调「可打印区域」或纸张边距，本软件内容宽 201mm，两侧各留约 20mm。<br><br>
+
+      <b>四、字号想调大调小</b><br>
+      工具栏「字号」里有三组：<b>标头</b>（公司名＋单据类型）、<b>单据信息</b>（制单人/日期/编号/客户那几行）、<b>货物明细</b>（表头＋明细＋合计＋底部签字行）。每组用 － / ＋ 按 5% 一档调，范围 60%~200%，改动立刻在右侧预览生效并自动记住；点「复位」三块都回到 100%。<br>
+      注意：明细字号调大会让每行变高，一页能装的条数随之减少（自动分页，不会压到纸外）。<br><br>
+
+      <b>五、其他</b><br>
+      · 三联纸自带复写，一次打印即得三联；多页时每页都会重复表头并标注页码。<br>
+      · 数据保存在本机浏览器里，建议每周点一次「导出备份」，换电脑时用「导入备份」恢复。
+    </div>`, [{label:'知道了', primary:true, act:closeModal}]);
+}
+
+let toastTimer=null;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ============ 误删撤销条 ============
+   删行、删记录后底部弹出「已删除… 撤销」，6 秒内点撤销即可原样恢复；
+   期间又删了一次，前一次的撤销机会作废（只保留最近一次）。 */
+let undoAction = null, undoTimer = null;
+const UNDO_MS = 6000;
+function offerUndo(text, fn){
+  undoAction = fn || null;
+  const bar=$('#undoBar'); if(!bar || !fn) return;
+  $('#undoText').textContent = text;
+  bar.classList.add('show');
+  if(undoTimer) clearTimeout(undoTimer);
+  undoTimer = setTimeout(closeUndo, UNDO_MS);
+}
+function closeUndo(){
+  const bar=$('#undoBar');
+  if(bar) bar.classList.remove('show');
+  undoAction = null;
+  if(undoTimer){ clearTimeout(undoTimer); undoTimer=null; }
+}
+function runUndo(){
+  const f = undoAction;
+  closeUndo();
+  if(f) f();
+}
+
+/* ============ 启动 ============ */
+init();
+</script>
+</body>
+</html>

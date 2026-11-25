@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.20</title>
+<title>送货单 v1.21</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -217,13 +217,14 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.20</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.21</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
     <button class="btn ghost" id="btnNew">新建</button>
     <button class="btn ghost" id="btnSave">保存</button>
     <button class="btn ghost" id="btnClone">复制本单</button>
+    <button class="btn ghost" id="btnXls" title="按当前列设置导出真正的 .xlsx，文件名同另存 PDF">导出 Excel</button>
     <button class="btn primary" id="btnPrint">打印 / 导出PDF</button>
   </div>
 
@@ -338,7 +339,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
           </div>
           <div class="pnote">
             针式打印机：纸张 = <b>三联纸 214.7×139.8mm</b>（打印机表单里叫「21.47×13.98」），缩放 = <b>100%</b>（不要选「适合纸张」），边距 = <b>无</b>，取消勾选「页眉和页脚」。<br>
-            存电子档：打印机改选 <b>Microsoft Print to PDF</b>，文件名自动是「客户 + 单据编号」。
+            存电子档：点顶栏 <b>导出 Excel</b> 得到 .xlsx（列设置与纸面一致，合计是真公式）；要 PDF 就把打印机改选 <b>Microsoft Print to PDF</b>，文件名自动是「客户 + 单据编号」。
           </div>
         </div>
       </div><!-- /panelPrint -->
@@ -627,6 +628,7 @@ function bind(){
   $('#btnOpen').onclick = openRecords;
   $('#btnClone').onclick = cloneDoc;
   $('#btnPrint').onclick = doPrint;
+  $('#btnXls').onclick = exportExcel;
   $('#btnAdd').onclick = ()=>addRow();
   $('#btnIns').onclick = insertRow;
   $('#btnDel').onclick = delRows;
@@ -2142,6 +2144,220 @@ function printFileName(){
   const safe = raw.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().slice(0,100);
   return safe || '送货单';
 }
+/* ============ 导出 Excel：真正的 .xlsx（手写 zip，零依赖） ============ */
+/* 结构和纸面一模一样：标题 / 三行单据信息 / 表头 / 明细 / 合计 / 签字栏。
+   列、列名、顺序、宽度全部跟随「列设置」，隐藏的列不导出；数量是真数字，
+   合计用 SUM 公式，导出后还能接着筛选、求和。
+   文件名和另存 PDF 一致：「客户 单据编号.xlsx」。 */
+function xlsxCell(ref, s, val, numeric){
+  if(val===undefined || val===null || String(val)==='') return '<c r="'+ref+'" s="'+s+'"/>';
+  if(numeric) return '<c r="'+ref+'" s="'+s+'"><v>'+val+'</v></c>';
+  return '<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+xmlEscape(val)+'</t></is></c>';
+}
+
+function xlTextW(s){
+  s = String(s == null? '' : s); let w = 0;
+  for(let i=0;i<s.length;i++){ w += (s.charCodeAt(i) > 255 ? 2 : 1); }   // 中文按两个字符宽算
+  return w;
+}
+
+function xlsxStyles(){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<fonts count="3">'
+    + '<font><sz val="11"/><name val="宋体"/><charset val="134"/></font>'
+    + '<font><b/><sz val="11"/><name val="宋体"/><charset val="134"/></font>'
+    + '<font><b/><sz val="16"/><name val="宋体"/><charset val="134"/></font>'
+    + '</fonts>'
+    + '<fills count="3">'
+    + '<fill><patternFill patternType="none"/></fill>'
+    + '<fill><patternFill patternType="gray125"/></fill>'
+    + '<fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill>'
+    + '</fills>'
+    + '<borders count="2">'
+    + '<border><left/><right/><top/><bottom/><diagonal/></border>'
+    + '<border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right>'
+    + '<top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border>'
+    + '</borders>'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="8">'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+    + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="1" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    + '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    + '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+    + '</cellXfs>'
+    + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+    + '</styleSheet>';
+}
+
+function xlsxSheetXml(data, vis){
+  const n = Math.max(1, vis.length);
+  const last = colLetter(n-1);
+  const R = [], merges = [];
+  const items = (data.items || []);
+  const ttl = (String(data.company || '') + '  ' + String(data.dtype || '送货单')).trim();
+
+  let row1 = xlsxCell('A1', 1, ttl);
+  for(let i=1;i<n;i++) row1 += xlsxCell(colLetter(i)+'1', 1, '');
+  if(n>1) merges.push('A1:'+last+'1');
+  R.push('<row r="1" ht="30" customHeight="1">'+row1+'</row>');
+
+  const info = [
+    '制单人：' + (data.maker || '') + '      录单日期：' + (data.date || '') + '      单据编号：' + (data.no || ''),
+    '经办人：' + (data.agent || '') + '      部门：' + (data.dept || '') + '      发货仓库：' + (data.warehouse || ''),
+    '客户：' + (data.customer || '') + '      摘要：' + (data.summary || '')
+  ];
+  info.forEach((txt, k)=>{
+    const r = 3 + k;
+    let cells = xlsxCell('A'+r, 2, txt);
+    for(let i=1;i<n;i++) cells += xlsxCell(colLetter(i)+r, 2, '');
+    if(n>1) merges.push('A'+r+':'+last+r);
+    R.push('<row r="'+r+'" ht="20" customHeight="1">'+cells+'</row>');
+  });
+
+  const totW = vis.reduce((s, c)=>s + (+c.w || 60), 0) || 1;
+  const colw = vis.map(c=>Math.min(60, Math.max(7, Math.round((+c.w || 60) / totW * 150))));
+
+  let head = '';
+  vis.forEach((c, i)=>{ head += xlsxCell(colLetter(i)+'7', 3, c.name); });
+  R.push('<row r="7" ht="30" customHeight="1">'+head+'</row>');
+
+  const first = 8;
+  items.forEach((it, k)=>{
+    const r = first + k;
+    let cells = '', need = 1;
+    vis.forEach((c, i)=>{
+      const ref = colLetter(i)+r;
+      if(c.k==='seq'){ cells += xlsxCell(ref, 4, String(k+1), true); return; }
+      if(c.k==='qty'){
+        const q = String(it.qty==null? '' : it.qty).trim();
+        cells += q ? xlsxCell(ref, 5, String(num(q)), true) : xlsxCell(ref, 4, '');
+        return;
+      }
+      const txt = it[c.k]==null? '' : String(it[c.k]);
+      // 存货名称可能很长：按列宽算要折几行，行高跟着长，Excel 里不会只露半截
+      need = Math.max(need, Math.ceil(xlTextW(txt) / Math.max(4, colw[i] - 1)));
+      cells += xlsxCell(ref, 4, txt);
+    });
+    const ht = Math.max(22, 6 + need * 15);
+    R.push('<row r="'+r+'" ht="'+ht+'" customHeight="1">'+cells+'</row>');
+  });
+
+  const qRow = first + Math.max(1, items.length);
+  const qi = vis.findIndex(c=>c.k==='qty');
+  const sum = totalQty(items);
+  if(qi>0){
+    let cells = xlsxCell('A'+qRow, 6, '合计');
+    for(let i=1;i<qi;i++) cells += xlsxCell(colLetter(i)+qRow, 6, '');
+    const qc = colLetter(qi);
+    if(items.length){
+      cells += '<c r="'+qc+qRow+'" s="5"><f>SUM('+qc+first+':'+qc+(first+items.length-1)+')</f><v>'+num(sum)+'</v></c>';
+    }else{
+      cells += xlsxCell(qc+qRow, 5, String(num(sum)), true);
+    }
+    for(let i=qi+1;i<n;i++) cells += xlsxCell(colLetter(i)+qRow, 6, '');
+    merges.push('A'+qRow+':'+colLetter(qi-1)+qRow);
+    R.push('<row r="'+qRow+'" ht="22" customHeight="1">'+cells+'</row>');
+  }else{
+    let cells = xlsxCell('A'+qRow, 6, '合计　'+sum);
+    for(let i=1;i<n;i++) cells += xlsxCell(colLetter(i)+qRow, 6, '');
+    if(n>1) merges.push('A'+qRow+':'+last+qRow);
+    R.push('<row r="'+qRow+'" ht="22" customHeight="1">'+cells+'</row>');
+  }
+
+  const sRow = qRow + 2;
+  const s1 = '财务', s2 = '送货人' + (data.shipper? '：'+data.shipper : ''), s3 = '购货单位签字';
+  let sc = '';
+  if(n>=3){
+    const k1 = Math.max(1, Math.round(n/3));
+    const k2 = Math.min(n-1, Math.max(k1+1, Math.round(2*n/3)));
+    [[0, k1-1, s1], [k1, k2-1, s2], [k2, n-1, s3]].forEach(seg=>{
+      const a = seg[0], b = seg[1];
+      merges.push(colLetter(a)+sRow+':'+colLetter(b)+sRow);
+      sc += xlsxCell(colLetter(a)+sRow, 7, seg[2]);
+      for(let i=a+1;i<=b;i++) sc += xlsxCell(colLetter(i)+sRow, 7, '');
+    });
+  }else{
+    sc = xlsxCell('A'+sRow, 7, s1 + '        ' + s2 + '        ' + s3);
+    for(let i=1;i<n;i++) sc += xlsxCell(colLetter(i)+sRow, 7, '');
+    if(n>1) merges.push('A'+sRow+':'+last+sRow);
+  }
+  R.push('<row r="'+sRow+'" ht="24" customHeight="1">'+sc+'</row>');
+
+  const colsXml = '<cols>' + colw.map((w, i)=>
+    '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>').join('') + '</cols>';
+
+  const mergesXml = merges.length
+    ? '<mergeCells count="'+merges.length+'">' + merges.map(m=>'<mergeCell ref="'+m+'"/>').join('') + '</mergeCells>'
+    : '';
+  const dimR = Math.max(sRow, qRow, first + items.length - 1, 7);
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<dimension ref="A1:'+last+dimR+'"/>'
+    + '<sheetViews><sheetView workbookViewId="0">'
+    + '<pane ySplit="7" topLeftCell="A8" activePane="bottomLeft" state="frozen"/>'
+    + '</sheetView></sheetViews>'
+    + '<sheetFormatPr defaultRowHeight="16"/>'
+    + colsXml
+    + '<sheetData>' + R.join('') + '</sheetData>'
+    + mergesXml
+    + '<pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.2" footer="0.2"/>'
+    + '<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+    + '</worksheet>';
+}
+
+function xlsxParts(data){
+  const vis = visibleCols();
+  const sn = (String(data.dtype || '送货单').replace(/[\\\/\?\*\[\]:]/g, '').slice(0, 20) || '送货单');
+  const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  return [
+    {name:'[Content_Types].xml', data: head
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      + '<Default Extension="xml" ContentType="application/xml"/>'
+      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      + '</Types>'},
+    {name:'_rels/.rels', data: head
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      + '</Relationships>'},
+    {name:'xl/workbook.xml', data: head
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+      + '<sheets><sheet name="'+xmlEscape(sn)+'" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels', data: head
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      + '</Relationships>'},
+    {name:'xl/styles.xml', data: xlsxStyles()},
+    {name:'xl/worksheets/sheet1.xml', data: xlsxSheetXml(data, vis)}
+  ];
+}
+
+function buildXlsxBlob(data){ return makeZip(xlsxParts(data)); }
+
+function exportExcel(){
+  ensureNo();
+  const data = collect();
+  renderPrint();
+  const name = printFileName();
+  const blob = buildXlsxBlob(data);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name + '.xlsx';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('已导出 Excel：' + name + '.xlsx（列设置、隐藏列与纸面一致）');
+}
+
 /* 真正调起浏览器打印：把「客户 编号」临时当作页面标题，
    打印面板里的默认文件名就是这个标题；打完立刻恢复原标题（顶栏/版本号不受影响） */
 function doPrintNow(){
