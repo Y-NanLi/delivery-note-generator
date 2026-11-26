@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>送货单 v1.29</title>
+<title>送货单</title>
 <style>
 :root{
   --bg:#eef1f5; --card:#fff; --line:#d5dbe3; --text:#1f2937; --muted:#6b7280;
@@ -30,6 +30,10 @@ body{
 .btn.ghost{background:transparent;color:#dbe4ee;border:1px solid #44576b}
 .btn.ghost:hover{background:#2c3c4e}
 .btn.sm{padding:4px 9px;font-size:12px;border-radius:5px}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.btn:disabled:hover{filter:none}
+#panelAbout a{color:#1f6feb;text-decoration:none;border-bottom:1px dotted #a9c8f7}
+#panelAbout a:hover{border-bottom-color:#1f6feb}
 select,input{font-family:inherit}
 
 .workbar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
@@ -233,7 +237,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
 
 <div id="app">
   <div class="topbar">
-    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.29</span></span>
+    <span class="brand">送货单<span style="font-size:11px;font-weight:600;color:#93a3b5;margin-left:7px;letter-spacing:.5px">v1.30</span></span>
     <span class="tag" id="tagNo">未编号</span>
     <span class="tag" id="tagLayout">三联纸 214.7×139.8</span>
     <span class="spacer"></span>
@@ -250,6 +254,7 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
       <button class="railBtn" data-panel="print" title="打印版式、上下微调、三块字号"><svg viewBox="0 0 24 24"><rect x="3.6" y="8" width="16.8" height="11" rx="1.6"/><path d="M7.6 8V4.6h8.8v3.4"/><path d="M7.6 14.6h8.8"/></svg><span>版式字号</span></button>
       <button class="railBtn" data-panel="opts" title="下拉候选与明细列设置"><svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16"/><circle cx="9.5" cy="6.5" r="2.1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2.1" fill="currentColor" stroke="none"/><circle cx="8" cy="17.5" r="2.1" fill="currentColor" stroke="none"/></svg><span>选项列宽</span></button>
       <button class="railBtn" data-panel="store" title="记录库与备份"><svg viewBox="0 0 24 24"><path d="M4.8 7.4c0-1.7 3.2-3 7.2-3s7.2 1.3 7.2 3v9.2c0 1.7-3.2 3-7.2 3s-7.2-1.3-7.2-3z"/><path d="M4.8 12c0 1.7 3.2 3 7.2 3s7.2-1.3 7.2-3"/></svg><span>记录备份</span></button>
+      <button class="railBtn" data-panel="about" title="关于：软件说明、项目地址"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 11.2v5.2"/><circle cx="12" cy="7.9" r="1.05" fill="currentColor" stroke="none"/></svg><span>关于</span></button>
     </nav>
 
     <div class="pages" id="pages">
@@ -414,6 +419,34 @@ table.items td.rowSel input[type=checkbox]:focus{background:transparent}
           </div>
         </div>
       </div><!-- /panelStore -->
+
+      <div class="pagePanel" id="panelAbout">
+        <div class="card">
+          <div class="card-title">关于送货单<span class="sub">v1.30 · 单文件网页版，不联网、不装插件</span></div>
+          <div class="helpText">
+            <div style="margin:0 0 8px">开送货单用的一个小工具：左边录单，右边实时预览，按三联纸 214.7×139.8mm 打出来直接能撕下来。</div>
+            <div style="margin:0 0 8px">全部功能都在一个 <code>送货单.html</code> 里，双击 <code>启动送货单.bat</code> 会用 Edge 独立小窗口打开；不用装任何软件，也不往网上传数据。</div>
+            <div style="margin:0 0 8px">单据、货物明细库、下拉选项、列宽和字号都存在<b>本机浏览器</b>里。换电脑、重装系统、清理浏览器数据之前，记得去「记录备份」导出一份备份；发给同事时把整个 <b>送货单生成器</b> 文件夹压缩发过去，解压双击 <code>启动送货单.bat</code> 就能用，各存各的数据。</div>
+            <div style="margin:8px 0 0">打印前检查四项：纸张 21.47×13.98、边距无、页眉页脚取消勾选、缩放 100%。点顶栏「打印 / 导出PDF」时会先提醒一次，确认过可以在提醒里勾掉。</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">项目地址<span class="sub">源码、版本历史、问题反馈</span></div>
+          <div class="helpText">
+            <div style="margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <b style="min-width:64px">Gitee</b>
+              <a href="https://gitee.com/nan-liGit/delivery-note-generator" target="_blank" rel="noopener">gitee.com/nan-liGit/delivery-note-generator</a>
+              <button class="btn sm" data-copy="https://gitee.com/nan-liGit/delivery-note-generator">复制</button>
+            </div>
+            <div style="margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <b style="min-width:64px">GitHub</b>
+              <a href="https://github.com/Y-NanLi/delivery-note-generator" target="_blank" rel="noopener">github.com/Y-NanLi/delivery-note-generator</a>
+              <button class="btn sm" data-copy="https://github.com/Y-NanLi/delivery-note-generator">复制</button>
+            </div>
+            <div class="pnote" style="margin-top:6px">两个仓库是同一份代码，国内访问 Gitee 更快；GitHub 是镜像。点地址如果没反应（独立窗口限制），点「复制」粘到浏览器里打开即可。</div>
+          </div>
+        </div>
+      </div><!-- /panelAbout -->
     </div><!-- /pages -->
 
     <div class="previewPane">
@@ -620,6 +653,22 @@ function init(){
 }
 
 function bind(){
+  document.querySelectorAll('[data-copy]').forEach(b=>{
+    b.onclick = ()=>{
+      const txt = b.dataset.copy, done = ()=> toast('已复制：' + txt);
+      const fallback = ()=>{
+        const ta = document.createElement('textarea');
+        ta.value = txt; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select();
+        try{ document.execCommand('copy'); done(); }
+        catch(e){ toast('复制失败，请手动选中网址'); }
+        ta.remove();
+      };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done, fallback);
+      } else fallback();
+    };
+  });
   const map = {company:'#f_company',maker:'#f_maker',date:'#f_date',no:'#f_no',agent:'#f_agent',
                shipper:'#f_shipper',dept:'#f_dept',warehouse:'#f_warehouse',customer:'#f_customer',summary:'#f_summary'};
   Object.keys(map).forEach(k=>{
@@ -803,7 +852,7 @@ function updateTag(){
 }
 
 /* ============ 左侧导航：录单 / 版式字号 / 选项列宽 / 记录备份 ============ */
-const PANELS = {doc:'panelDoc', print:'panelPrint', opts:'panelOpts', store:'panelStore'};
+const PANELS = {doc:'panelDoc', print:'panelPrint', opts:'panelOpts', store:'panelStore', about:'panelAbout'};
 function showPanel(name){
   if(!PANELS[name]) name = 'doc';
   document.querySelectorAll('.railBtn').forEach(b=>{ b.classList.toggle('on', b.dataset.panel===name); });
@@ -2797,6 +2846,10 @@ function doPrintNow(){
 /* 打印前确认：左下角出现 file:/// 就是边距/页眉页脚没设对 */
 function showPrintCheck(){
   const paper = UI.layout==='a4' ? 'A4' : '三联纸 214.7×139.8（21.47×13.98cm）';
+  const PHRASE = '我已阅读且明白';
+  const WAIT_SEC = 20;
+  let left = WAIT_SEC, timer = null;
+  function stopGate(){ if(timer){ clearInterval(timer); timer = null; } }
   openModal('打印前确认这 4 项', `
     <div class="helpText">
       <div style="margin:0 0 9px">① 纸张 = <b>${esc(paper)}</b></div>
@@ -2807,20 +2860,73 @@ function showPrintCheck(){
       <div style="margin:6px 0 0;color:#6b7280">单据编号：<b style="color:#1f6feb">${esc(String(model.no||'').trim() || ('未填，打印时自动生成 '+nextNo(model.date)))}</b></div>
       <div style="margin-top:14px;padding-top:10px;border-top:1px dashed #d7dee8">
         <label style="cursor:pointer"><input type="checkbox" id="phNoShow"> 以后不再显示这个提醒（随时可在「打印设置说明」里查看）</label>
+        <div id="phGate" style="display:none;margin-top:10px;padding:10px 12px;background:#fff8ed;border:1px solid #f3d9b0;border-radius:8px">
+          <div style="color:#b45309;margin:0 0 8px">勾上就是永久设置，以后不再提醒。为免手滑，请照抄下面这句话，并等满 ${WAIT_SEC} 秒：</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <code style="background:#fff;border:1px solid #ead7b6;padding:3px 8px;border-radius:4px">${PHRASE}</code>
+            <input id="phWord" placeholder="在这里照抄" autocomplete="off" style="width:150px;padding:5px 8px;border:1px solid #d5dce6;border-radius:5px;font-family:inherit;font-size:13px">
+          </div>
+          <div id="phState" style="margin-top:8px;font-size:12.5px;color:#b45309">还需等待 <b>${WAIT_SEC}</b> 秒，且要抄对这句话</div>
+        </div>
       </div>
     </div>`, [
-      {label:'取消', act:closeModal},
+      {label:'取消', act:()=>{ stopGate(); closeModal(); }},
       {label:'继续打印', primary:true, act:()=>{
-        const cb = $('#phNoShow');
+        const cb = $('#phNoShow'), w = $('#phWord');
         if(cb && cb.checked){
+          if(left > 0 || String((w && w.value) || '').trim() !== PHRASE){
+            toast('要一字不差抄对，并等满 ' + WAIT_SEC + ' 秒才能确定');
+            return;
+          }
           const s = LS.get(SET_KEY, {});
           s.printHint = false;
           LS.set(SET_KEY, s);
         }
+        stopGate();
         closeModal();
         setTimeout(doPrintNow, 150);
       }}
     ]);
+  const cb=$('#phNoShow'), gate=$('#phGate'), word=$('#phWord'), stateEl=$('#phState'),
+        goBtn=$('#modalBox').querySelector('.btn.primary');
+  function paint(){
+    const typed = String((word && word.value) || '').trim() === PHRASE;
+    goBtn.disabled = !!(cb.checked && (left > 0 || !typed));
+    if(!cb.checked){
+      stateEl.innerHTML = '还需等待 <b>' + WAIT_SEC + '</b> 秒，且要抄对这句话';
+      stateEl.style.color = '#b45309';
+      return;
+    }
+    stateEl.innerHTML = (left > 0
+        ? '<span style="color:#b45309">还需等待 <b>' + left + '</b> 秒</span>'
+        : '<span style="color:#15803d">✓ 等待已满</span>')
+      + '　' + (typed
+        ? '<span style="color:#15803d">✓ 已抄对</span>'
+        : '<span style="color:#b42318">✗ 还没抄对（要一字不差）</span>');
+  }
+  cb.onchange = ()=>{
+    if(cb.checked){
+      gate.style.display = 'block';
+      stopGate();
+      left = WAIT_SEC;
+      timer = setInterval(()=>{
+        if(!document.body.contains(gate)){ stopGate(); return; }
+        left = Math.max(0, left - 1);
+        if(left === 0) stopGate();
+        paint();
+      }, 1000);
+      paint();
+      word.focus();
+    }else{
+      gate.style.display = 'none';
+      stopGate();
+      left = WAIT_SEC;
+      word.value = '';
+      paint();
+    }
+  };
+  word.addEventListener('input', paint);
+  paint();
 }
 
 /* ============ 备份 ============ */
